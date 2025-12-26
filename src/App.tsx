@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -6,7 +7,14 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ClientProvider } from "@/contexts/ClientContext";
 import LoginView from "@/components/central/LoginView";
 import DashboardView from "@/components/central/DashboardView";
-import { DashboardData } from "@/types";
+import TeamView from "@/components/central/TeamView";
+import PGVView from "@/components/central/PGVView";
+import SeasonalityView from "@/components/central/SeasonalityView";
+import InsightsView from "@/components/central/InsightsView";
+import SettingsView from "@/components/central/SettingsView";
+import Sidebar from "@/components/central/Sidebar";
+import ChatAssistant from "@/components/central/ChatAssistant";
+import { DashboardData, ViewState } from "@/types";
 
 const queryClient = new QueryClient();
 
@@ -31,6 +39,15 @@ const demoData: DashboardData = {
     { month: "Jan", year: 2024, revenue: 180000, goal: 200000 },
     { month: "Fev", year: 2024, revenue: 165000, goal: 200000 },
     { month: "Mar", year: 2024, revenue: 210000, goal: 200000 },
+    { month: "Abr", year: 2024, revenue: 195000, goal: 200000 },
+    { month: "Mai", year: 2024, revenue: 225000, goal: 200000 },
+    { month: "Jun", year: 2024, revenue: 188000, goal: 200000 },
+    { month: "Jul", year: 2024, revenue: 172000, goal: 200000 },
+    { month: "Ago", year: 2024, revenue: 198000, goal: 200000 },
+    { month: "Set", year: 2024, revenue: 215000, goal: 200000 },
+    { month: "Out", year: 2024, revenue: 232000, goal: 200000 },
+    { month: "Nov", year: 2024, revenue: 245000, goal: 200000 },
+    { month: "Dez", year: 2024, revenue: 285000, goal: 200000 },
   ],
   currentYearData: [
     { month: "Jan", year: 2025, revenue: 220000, goal: 200000 },
@@ -44,31 +61,146 @@ const demoData: DashboardData = {
     { month: "Set", year: 2025, revenue: 0, goal: 200000 },
     { month: "Out", year: 2025, revenue: 0, goal: 200000 },
     { month: "Nov", year: 2025, revenue: 0, goal: 200000 },
-    { month: "Dez", year: 2025, revenue: 520000, goal: 200000 },
+    { month: "Dez", year: 2025, revenue: 0, goal: 200000 },
   ],
-  team: [],
+  team: [
+    {
+      id: "1",
+      name: "Carlos Silva",
+      avatar: "",
+      totalRevenue: 145000,
+      monthlyGoal: 120000,
+      active: true,
+      totalSalesCount: 48,
+      weeks: [
+        { week: 1, revenue: 32000, goal: 30000 },
+        { week: 2, revenue: 38000, goal: 30000 },
+        { week: 3, revenue: 41000, goal: 30000 },
+        { week: 4, revenue: 34000, goal: 30000 },
+      ],
+    },
+    {
+      id: "2",
+      name: "Ana Costa",
+      avatar: "",
+      totalRevenue: 128000,
+      monthlyGoal: 120000,
+      active: true,
+      totalSalesCount: 42,
+      weeks: [
+        { week: 1, revenue: 28000, goal: 30000 },
+        { week: 2, revenue: 35000, goal: 30000 },
+        { week: 3, revenue: 32000, goal: 30000 },
+        { week: 4, revenue: 33000, goal: 30000 },
+      ],
+    },
+    {
+      id: "3",
+      name: "Pedro Santos",
+      avatar: "",
+      totalRevenue: 95000,
+      monthlyGoal: 120000,
+      active: true,
+      totalSalesCount: 31,
+      weeks: [
+        { week: 1, revenue: 22000, goal: 30000 },
+        { week: 2, revenue: 25000, goal: 30000 },
+        { week: 3, revenue: 28000, goal: 30000 },
+        { week: 4, revenue: 20000, goal: 30000 },
+      ],
+    },
+  ],
 };
 
 const AuthenticatedApp = () => {
-  const { user, userProfile, signOut } = useAuth();
+  const { userProfile } = useAuth();
+  const [currentView, setCurrentView] = useState<ViewState>("dashboard");
+  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", isDarkMode);
+  }, [isDarkMode]);
+
+  const handleToggleTheme = () => {
+    setIsDarkMode(!isDarkMode);
+  };
+
+  const renderCurrentView = () => {
+    switch (currentView) {
+      case "dashboard":
+        return <DashboardView data={demoData} />;
+      case "team":
+        return <TeamView team={demoData.team} monthlyGoal={200000} />;
+      case "pgv":
+        return <PGVView data={demoData} />;
+      case "seasonality":
+        return (
+          <SeasonalityView
+            historicalData={demoData.historicalData}
+            currentYearData={demoData.currentYearData}
+          />
+        );
+      case "insights":
+        return <InsightsView data={demoData} />;
+      case "settings":
+        return <SettingsView data={demoData} />;
+      case "ai-summary":
+        return (
+          <div className="p-8">
+            <h2 className="text-2xl font-bold text-foreground mb-4">Sumário Executivo</h2>
+            <p className="text-muted-foreground">Em desenvolvimento...</p>
+          </div>
+        );
+      case "glossary":
+        return (
+          <div className="p-8">
+            <h2 className="text-2xl font-bold text-foreground mb-4">Glossário</h2>
+            <p className="text-muted-foreground">Em desenvolvimento...</p>
+          </div>
+        );
+      case "admin-users":
+        return (
+          <div className="p-8">
+            <h2 className="text-2xl font-bold text-foreground mb-4">Gestão de Alunos</h2>
+            <p className="text-muted-foreground">Em desenvolvimento...</p>
+          </div>
+        );
+      case "input-center":
+        return (
+          <div className="p-8">
+            <h2 className="text-2xl font-bold text-foreground mb-4">Lançamentos</h2>
+            <p className="text-muted-foreground">Em desenvolvimento...</p>
+          </div>
+        );
+      case "agency-global":
+        return (
+          <div className="p-8">
+            <h2 className="text-2xl font-bold text-foreground mb-4">Visão Global Agência</h2>
+            <p className="text-muted-foreground">Em desenvolvimento...</p>
+          </div>
+        );
+      default:
+        return <DashboardView data={demoData} />;
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="p-6 max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Central Inteligente</h1>
-            <p className="text-sm text-muted-foreground">Bem-vindo, {user?.email}</p>
-          </div>
-          <button
-            onClick={signOut}
-            className="px-4 py-2 bg-destructive/10 text-destructive rounded-lg text-sm font-medium hover:bg-destructive/20 transition-colors"
-          >
-            Sair
-          </button>
-        </div>
-        <DashboardView data={demoData} />
-      </div>
+    <div className="min-h-screen bg-background flex">
+      <Sidebar
+        currentView={currentView}
+        onChangeView={setCurrentView}
+        onOpenUpload={() => setShowUploadModal(true)}
+        userRole={userProfile?.role || "business_owner"}
+        isDarkMode={isDarkMode}
+        onToggleTheme={handleToggleTheme}
+      />
+      
+      <main className="flex-1 ml-64 p-6 overflow-auto">
+        {renderCurrentView()}
+      </main>
+      
+      <ChatAssistant data={demoData} />
     </div>
   );
 };
@@ -78,8 +210,10 @@ const AppContent = () => {
 
   if (loading) {
     return (
-      <div className="h-screen w-screen bg-slate-950 flex items-center justify-center text-cyan-500 animate-pulse font-mono tracking-widest">
-        INICIANDO SISTEMA...
+      <div className="h-screen w-screen bg-background flex items-center justify-center">
+        <div className="text-primary animate-pulse font-mono tracking-widest text-lg">
+          INICIANDO SISTEMA...
+        </div>
       </div>
     );
   }
