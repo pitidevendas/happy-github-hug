@@ -61,6 +61,13 @@ const useUploadSheet = () => {
   const { toast } = useToast();
 
   // Parser para aba "Geral" - extrai faturamento mensal por ano
+  // Estrutura real da planilha Geral:
+  // Linha 1 (índice 0): Título/Cabeçalho
+  // Linha 2 (índice 1): Anos (2022, 2023, 2024, 2025) nas colunas B, C, D, E
+  // Linhas 3-14 (índice 2-13): Meses com faturamento
+  // Coluna A: Nomes dos meses
+  // Colunas B-E: Faturamento por ano
+  // Coluna K (índice 10): Início mentoria
   const parseGeneralSheet = (
     worksheet: XLSX.WorkSheet,
     cutoffMonth: number,
@@ -68,27 +75,36 @@ const useUploadSheet = () => {
   ): { historicalData: MonthlyData[]; currentYearData: MonthlyData[]; yearsAvailable: number[]; mentorshipStartDate?: string } => {
     const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null }) as any[][];
     
+    console.log("[parseGeneralSheet] Total de linhas:", jsonData.length);
+    
     const historicalData: MonthlyData[] = [];
     const currentYearData: MonthlyData[] = [];
     const yearsAvailable: number[] = [];
     let mentorshipStartDate: string | undefined;
     
-    // Detectar anos disponíveis (colunas B, C, D, E... que contêm anos)
-    // Estrutura: Coluna A = Mês, Colunas B+ = Anos (2022, 2023, 2024, 2025...)
-    const headerRow = jsonData[0] || [];
+    // Detectar linha com anos (procurar linha que contém anos como 2022, 2023, 2024, 2025)
+    let yearRowIndex = -1;
     const yearColumns: { col: number; year: number }[] = [];
     
-    for (let col = 1; col < headerRow.length; col++) {
-      const cellValue = headerRow[col];
-      if (typeof cellValue === "number" && cellValue >= 2020 && cellValue <= 2030) {
-        yearColumns.push({ col, year: cellValue });
-        if (!yearsAvailable.includes(cellValue)) {
-          yearsAvailable.push(cellValue);
+    for (let rowIdx = 0; rowIdx < Math.min(jsonData.length, 5); rowIdx++) {
+      const row = jsonData[rowIdx] || [];
+      for (let col = 1; col < Math.min(row.length, 10); col++) {
+        const cellValue = row[col];
+        if (typeof cellValue === "number" && cellValue >= 2020 && cellValue <= 2030) {
+          if (yearRowIndex === -1) yearRowIndex = rowIdx;
+          yearColumns.push({ col, year: cellValue });
+          if (!yearsAvailable.includes(cellValue)) {
+            yearsAvailable.push(cellValue);
+          }
         }
       }
+      if (yearColumns.length > 0) break;
     }
     
-    // Procurar "Início Mentoria" na planilha (geralmente coluna K)
+    console.log("[parseGeneralSheet] Linha de anos encontrada:", yearRowIndex + 1);
+    console.log("[parseGeneralSheet] Anos detectados:", yearsAvailable);
+    
+    // Procurar "Início Mentoria" na planilha
     for (let row = 0; row < Math.min(jsonData.length, 20); row++) {
       for (let col = 0; col < Math.min((jsonData[row] || []).length, 15); col++) {
         const cell = jsonData[row]?.[col];
@@ -101,34 +117,52 @@ const useUploadSheet = () => {
               const date = XLSX.SSF.parse_date_code(dateCell);
               if (date) {
                 mentorshipStartDate = `${date.y}-${String(date.m).padStart(2, "0")}-${String(date.d).padStart(2, "0")}`;
+                console.log("[parseGeneralSheet] Data de mentoria encontrada:", mentorshipStartDate);
               }
             } else if (typeof dateCell === "string") {
               mentorshipStartDate = dateCell;
+              console.log("[parseGeneralSheet] Data de mentoria (string):", mentorshipStartDate);
             }
           }
         }
       }
     }
     
-    // Extrair faturamento por mês - procurar linhas com nomes de meses
-    for (let rowIdx = 1; rowIdx < jsonData.length; rowIdx++) {
+    // Extrair faturamento por mês - linhas após a linha de anos
+    const dataStartRow = yearRowIndex + 1;
+    
+    for (let rowIdx = dataStartRow; rowIdx < jsonData.length; rowIdx++) {
       const row = jsonData[rowIdx];
       if (!row || !row[0]) continue;
       
       const monthCell = String(row[0]).trim();
-      const monthIndex = monthNamesLong.findIndex(
-        (m) => monthCell.toLowerCase().startsWith(m.toLowerCase())
+      
+      // Tentar encontrar o índice do mês
+      let monthIndex = monthNamesLong.findIndex(
+        (m) => monthCell.toLowerCase() === m.toLowerCase()
       );
+      
+      // Se não encontrou exatamente, tentar prefixo
+      if (monthIndex === -1) {
+        monthIndex = monthNamesLong.findIndex(
+          (m) => monthCell.toLowerCase().startsWith(m.toLowerCase().substring(0, 3))
+        );
+      }
       
       if (monthIndex === -1) continue;
       
       // Para cada ano detectado, extrair o valor
       for (const { col, year } of yearColumns) {
         const revenueValue = row[col];
-        const revenue = typeof revenueValue === "number" ? revenueValue : 
-                       (typeof revenueValue === "string" ? parseFloat(revenueValue.replace(/[^0-9.,]/g, "").replace(",", ".")) : 0);
+        let revenue = 0;
         
-        if (!revenue && revenue !== 0) continue;
+        if (typeof revenueValue === "number") {
+          revenue = revenueValue;
+        } else if (typeof revenueValue === "string") {
+          // Limpar string e converter
+          const cleanValue = revenueValue.replace(/[R$\s.]/g, "").replace(",", ".");
+          revenue = parseFloat(cleanValue) || 0;
+        }
         
         // Aplicar corte: ignorar meses após o mês selecionado
         if (!isBeforeOrEqual(monthIndex + 1, year, cutoffMonth, cutoffYear)) {
@@ -139,7 +173,7 @@ const useUploadSheet = () => {
           month: monthNames[monthIndex],
           year,
           revenue: revenue || 0,
-          goal: 0, // Meta será extraída de outra linha se existir
+          goal: 0, // Meta será extraída de outra coluna se existir
         };
         
         // Determinar se é ano atual ou histórico
@@ -152,85 +186,132 @@ const useUploadSheet = () => {
       }
     }
     
+    console.log("[parseGeneralSheet] Dados históricos:", historicalData.length, "registros");
+    console.log("[parseGeneralSheet] Dados ano atual:", currentYearData.length, "registros");
+    
     yearsAvailable.sort();
     
     return { historicalData, currentYearData, yearsAvailable, mentorshipStartDate };
   };
 
   // Parser para aba mensal (ex: Out-25) - extrai equipe
+  // Estrutura real da planilha:
+  // Linha 2 (índice 1): Cabeçalho com "CONSULTOR COMERCIAL"
+  // Linha 3 (índice 2): Datas das semanas
+  // Linhas 4+ (índice 3+): Dados dos vendedores
+  // Coluna A (0): Número do vendedor
+  // Coluna B (1): Nome do vendedor (CONSULTOR COMERCIAL)
+  // Coluna C (2): Previsto diário
+  // Coluna D (3): Previsto semanal
+  // Coluna E (4): Semana 1 valor
+  // Coluna G (6): Semana 2 valor
+  // Coluna I (8): Semana 3 valor
+  // Coluna K (10): Semana 4 valor
+  // Coluna M (12): Semana 5 valor
+  // Coluna P (15): Resultado (totalRevenue)
+  // Coluna R (17): Meta Projetada (monthlyGoal)
   const parseMonthlyTab = (worksheet: XLSX.WorkSheet): Salesperson[] => {
     const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null }) as any[][];
     const team: Salesperson[] = [];
     
-    // Encontrar a coluna "Consultor Comercial" ou similar
-    let consultorColIndex = -1;
-    let revenueColIndex = -1;
-    let goalColIndex = -1;
+    console.log("[parseMonthlyTab] Total de linhas:", jsonData.length);
     
-    // Procurar cabeçalhos
+    // Índices das colunas baseado na estrutura real
+    const COL_NUMERO = 0;        // Coluna A - Número do vendedor
+    const COL_NOME = 1;          // Coluna B - Nome do vendedor
+    const COL_PREVISTO_DIARIO = 2;  // Coluna C
+    const COL_PREVISTO_SEMANAL = 3; // Coluna D
+    const COL_SEMANA_1 = 4;      // Coluna E
+    const COL_SEMANA_2 = 6;      // Coluna G
+    const COL_SEMANA_3 = 8;      // Coluna I
+    const COL_SEMANA_4 = 10;     // Coluna K
+    const COL_SEMANA_5 = 12;     // Coluna M
+    const COL_RESULTADO = 15;    // Coluna P - Resultado final
+    const COL_META = 17;         // Coluna R - Meta Projetada
+    
+    const weekColumns = [COL_SEMANA_1, COL_SEMANA_2, COL_SEMANA_3, COL_SEMANA_4, COL_SEMANA_5];
+    
+    // Encontrar a linha do cabeçalho "CONSULTOR COMERCIAL"
+    let headerRowIndex = -1;
     for (let rowIdx = 0; rowIdx < Math.min(jsonData.length, 10); rowIdx++) {
       const row = jsonData[rowIdx] || [];
-      for (let colIdx = 0; colIdx < row.length; colIdx++) {
-        const cell = String(row[colIdx] || "").toLowerCase();
-        if (cell.includes("consultor") || cell.includes("vendedor") || cell.includes("comercial")) {
-          consultorColIndex = colIdx;
-        }
-        if (cell.includes("total") || cell.includes("realizado") || cell.includes("faturamento")) {
-          if (revenueColIndex === -1) revenueColIndex = colIdx;
-        }
-        if (cell.includes("meta") || cell.includes("objetivo")) {
-          if (goalColIndex === -1) goalColIndex = colIdx;
-        }
+      const cell = String(row[COL_NOME] || "").toLowerCase();
+      if (cell.includes("consultor") || cell.includes("comercial")) {
+        headerRowIndex = rowIdx;
+        console.log("[parseMonthlyTab] Cabeçalho encontrado na linha:", rowIdx + 1);
+        break;
       }
-      if (consultorColIndex !== -1) break;
     }
     
-    if (consultorColIndex === -1) {
-      // Fallback: tentar encontrar nomes na primeira coluna
-      consultorColIndex = 0;
+    // Se não encontrou cabeçalho, assumir linha 1 (índice 1)
+    if (headerRowIndex === -1) {
+      headerRowIndex = 1;
+      console.log("[parseMonthlyTab] Cabeçalho não encontrado, usando linha 2");
     }
     
-    // Extrair vendedores
-    const startRow = consultorColIndex === 0 ? 1 : 
-      jsonData.findIndex((row) => row && row[consultorColIndex] && 
-        typeof row[consultorColIndex] === "string" && 
-        !String(row[consultorColIndex]).toLowerCase().includes("consultor"));
+    // Dados dos vendedores começam após a linha de datas (cabeçalho + 2)
+    const dataStartRow = headerRowIndex + 2;
+    console.log("[parseMonthlyTab] Dados começam na linha:", dataStartRow + 1);
     
-    for (let rowIdx = Math.max(startRow, 1); rowIdx < jsonData.length; rowIdx++) {
+    // Processar cada linha de vendedor
+    for (let rowIdx = dataStartRow; rowIdx < jsonData.length; rowIdx++) {
       const row = jsonData[rowIdx];
       if (!row) continue;
       
-      const nameCell = row[consultorColIndex];
+      const nameCell = row[COL_NOME];
+      
+      // Validar nome do vendedor
       if (!nameCell || typeof nameCell !== "string") continue;
       
       const name = nameCell.trim();
-      if (!name || name.toLowerCase() === "total" || name.toLowerCase().includes("consultor")) continue;
       
-      // Extrair valores das semanas (colunas adjacentes)
+      // Ignorar linhas vazias, totais, ou cabeçalhos
+      if (!name) continue;
+      if (name.toLowerCase() === "total") {
+        console.log("[parseMonthlyTab] Linha de total encontrada, parando na linha:", rowIdx + 1);
+        break;
+      }
+      if (name.toLowerCase().includes("consultor")) continue;
+      if (name.toLowerCase().includes("comercial")) continue;
+      
+      // Verificar se a coluna A tem um número (indicando que é um vendedor válido)
+      const numCell = row[COL_NUMERO];
+      const isValidSalesperson = typeof numCell === "number" || 
+        (typeof numCell === "string" && /^\d+$/.test(numCell.trim()));
+      
+      if (!isValidSalesperson) {
+        console.log("[parseMonthlyTab] Linha ignorada (sem número):", name);
+        continue;
+      }
+      
+      // Extrair valores das semanas
       const weeks: SalespersonWeekly[] = [];
-      let totalRevenue = 0;
+      let totalWeeklyRevenue = 0;
       
-      // Tentar extrair dados semanais
-      for (let weekNum = 1; weekNum <= 5; weekNum++) {
-        const weekCol = consultorColIndex + weekNum;
+      for (let weekNum = 0; weekNum < weekColumns.length; weekNum++) {
+        const weekCol = weekColumns[weekNum];
         const weekValue = row[weekCol];
-        const revenue = typeof weekValue === "number" ? weekValue : 0;
-        totalRevenue += revenue;
+        const revenue = typeof weekValue === "number" ? weekValue : 
+          (typeof weekValue === "string" ? parseFloat(weekValue.replace(/[^0-9.,]/g, "").replace(",", ".")) || 0 : 0);
+        
+        totalWeeklyRevenue += revenue;
         weeks.push({
-          week: weekNum,
+          week: weekNum + 1,
           revenue,
           goal: 0,
         });
       }
       
-      // Se não encontrou dados semanais, usar colunas de total
-      if (totalRevenue === 0 && revenueColIndex !== -1) {
-        const revenueCell = row[revenueColIndex];
-        totalRevenue = typeof revenueCell === "number" ? revenueCell : 0;
-      }
+      // Extrair resultado (Coluna P) e meta (Coluna R)
+      const resultadoCell = row[COL_RESULTADO];
+      const totalRevenue = typeof resultadoCell === "number" ? resultadoCell :
+        (typeof resultadoCell === "string" ? parseFloat(resultadoCell.replace(/[^0-9.,]/g, "").replace(",", ".")) || totalWeeklyRevenue : totalWeeklyRevenue);
       
-      const goalValue = goalColIndex !== -1 ? row[goalColIndex] : 0;
-      const monthlyGoal = typeof goalValue === "number" ? goalValue : 0;
+      const metaCell = row[COL_META];
+      const monthlyGoal = typeof metaCell === "number" ? metaCell :
+        (typeof metaCell === "string" ? parseFloat(metaCell.replace(/[^0-9.,]/g, "").replace(",", ".")) || 0 : 0);
+      
+      console.log(`[parseMonthlyTab] Vendedor: ${name}, Resultado: ${totalRevenue}, Meta: ${monthlyGoal}`);
       
       team.push({
         id: String(team.length + 1),
@@ -239,16 +320,12 @@ const useUploadSheet = () => {
         totalRevenue,
         monthlyGoal,
         active: true,
-        weeks: weeks.length > 0 ? weeks : [
-          { week: 1, revenue: 0, goal: 0 },
-          { week: 2, revenue: 0, goal: 0 },
-          { week: 3, revenue: 0, goal: 0 },
-          { week: 4, revenue: 0, goal: 0 },
-        ],
+        weeks,
         totalSalesCount: 0,
       });
     }
     
+    console.log("[parseMonthlyTab] Total de vendedores encontrados:", team.length);
     return team;
   };
 
