@@ -19,7 +19,9 @@ import useUploadSheet from "@/hooks/useUploadSheet";
 import useDashboardData from "@/hooks/useDashboardData";
 import { DashboardData, ViewState, UploadConfig } from "@/types";
 
-const queryClient = new QueryClient();
+// Criar queryClient fora do componente mas com uma função
+const createQueryClient = () => new QueryClient();
+const queryClient = createQueryClient();
 
 // Dados de demonstração (usado quando não há dados no banco)
 const demoData: DashboardData = {

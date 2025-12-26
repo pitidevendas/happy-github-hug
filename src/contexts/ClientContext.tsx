@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode } from "react";
 
 interface ClientContextType {
   selectedClientId: string | null;
@@ -8,11 +8,21 @@ interface ClientContextType {
   isImpersonating: boolean;
 }
 
-const ClientContext = createContext<ClientContextType>({} as ClientContextType);
+const ClientContext = createContext<ClientContextType | undefined>(undefined);
 
-export const useClient = () => useContext(ClientContext);
+export function useClient(): ClientContextType {
+  const context = useContext(ClientContext);
+  if (context === undefined) {
+    throw new Error("useClient must be used within a ClientProvider");
+  }
+  return context;
+}
 
-export const ClientProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+interface ClientProviderProps {
+  children: ReactNode;
+}
+
+export function ClientProvider({ children }: ClientProviderProps) {
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [selectedClientEmail, setSelectedClientEmail] = useState<string | null>(null);
 
@@ -28,15 +38,17 @@ export const ClientProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const isImpersonating = !!selectedClientId;
 
+  const value: ClientContextType = {
+    selectedClientId,
+    selectedClientEmail,
+    selectClient,
+    clearClient,
+    isImpersonating,
+  };
+
   return (
-    <ClientContext.Provider value={{
-      selectedClientId,
-      selectedClientEmail,
-      selectClient,
-      clearClient,
-      isImpersonating
-    }}>
+    <ClientContext.Provider value={value}>
       {children}
     </ClientContext.Provider>
   );
-};
+}
