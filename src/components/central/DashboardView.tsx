@@ -20,7 +20,7 @@ const formatCurrency = (val: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(val);
 
 const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
-  const [period, setPeriod] = useState<'monthly' | 'annual'>('monthly');
+  const [period, setPeriod] = useState<'weekly' | 'monthly' | 'annual' | 'comparative'>('monthly');
   const { insights, isLoading: insightsLoading, fetchInsights } = useAIInsights();
 
   // Derivar anos dinamicamente dos dados disponíveis
@@ -191,8 +191,47 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
     }
   }, [data.kpis.annualGoal, refreshInsights]);
 
+  // Dados de acumulado anual
+  const annualAccumulated = useMemo(() => {
+    const totalRevenue = data.currentYearData.reduce((acc, d) => acc + d.revenue, 0);
+    const totalGoal = data.kpis.annualGoal || data.currentYearData.reduce((acc, d) => acc + d.goal, 0);
+    const progressPercent = totalGoal > 0 ? (totalRevenue / totalGoal) * 100 : 0;
+    
+    // Calcular acumulado do ano passado até o mesmo mês
+    const currentMonthName = currentMonthMetrics.current.month;
+    const monthOrder = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+    const currentMonthIndex = monthOrder.indexOf(currentMonthName);
+    
+    const lastYearAccumulated = data.historicalData
+      .filter(d => d.year === lastYear && monthOrder.indexOf(d.month) <= currentMonthIndex)
+      .reduce((acc, d) => acc + d.revenue, 0);
+    
+    const vsLastYear = lastYearAccumulated > 0 
+      ? ((totalRevenue - lastYearAccumulated) / lastYearAccumulated) * 100 
+      : 0;
+    
+    return { totalRevenue, totalGoal, progressPercent, vsLastYear };
+  }, [data, currentMonthMetrics, lastYear]);
+
   // Chart data com previsão
   const chartData = useMemo(() => {
+    // Dados semanais
+    if (period === 'weekly') {
+      const allTeamWeeks = data.team.flatMap(t => t.weeks);
+      return [1, 2, 3, 4, 5].map(week => {
+        const weekRevenue = allTeamWeeks.filter(w => w.week === week).reduce((sum, w) => sum + w.revenue, 0);
+        const weekGoal = allTeamWeeks.filter(w => w.week === week).reduce((sum, w) => sum + w.goal, 0);
+        return { 
+          name: `Sem ${week}`, 
+          revenue: weekRevenue, 
+          goal: weekGoal,
+          lastYear: 0,
+          forecast: null as number | null,
+        };
+      });
+    }
+
+    // Anual
     if (period === 'annual') {
       return availableYears.map(year => {
         const isCurrentYear = year === selectedYear;
@@ -207,6 +246,26 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
           name: year.toString(), 
           revenue: totalRevenue, 
           goal: totalGoal > 0 ? totalGoal : totalRevenue * 1.1,
+          lastYear: 0,
+          forecast: null as number | null,
+        };
+      });
+    }
+
+    // Comparativo: lado a lado ano atual vs anterior
+    if (period === 'comparative') {
+      const monthOrder = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+      return monthOrder.map(month => {
+        const currentYearMonth = data.currentYearData.find(d => d.month === month);
+        const lastYearMonth = data.historicalData.find(d => d.year === lastYear && d.month === month);
+        return {
+          name: month,
+          [selectedYear.toString()]: currentYearMonth?.revenue || 0,
+          [lastYear.toString()]: lastYearMonth?.revenue || 0,
+          revenue: currentYearMonth?.revenue || 0,
+          lastYear: lastYearMonth?.revenue || 0,
+          goal: currentYearMonth?.goal || 0,
+          forecast: null as number | null,
         };
       });
     }
@@ -247,8 +306,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Main KPIs Grid - 4 Columns */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Main KPIs Grid - 5 Columns */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Meta Prevista do Mês */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -403,6 +462,48 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
             })()}
           </div>
         </motion.div>
+
+        {/* Acumulado Ano */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.4 }}
+          className="relative overflow-hidden rounded-2xl p-5 bg-gradient-to-br from-indigo-600 via-indigo-700 to-indigo-800 text-white shadow-lg border border-indigo-500/30"
+        >
+          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl" />
+          
+          <div className="relative z-10">
+            <div className="flex justify-between items-start mb-2">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-200">
+                  Acumulado
+                </p>
+                <p className="text-xs text-indigo-300 font-semibold">{selectedYear}</p>
+              </div>
+              <div className="p-2 rounded-lg bg-white/10 text-indigo-200">
+                <TrendingUp size={16} />
+              </div>
+            </div>
+            
+            <h3 className="text-xl font-black text-white mb-2">
+              {formatCurrency(annualAccumulated.totalRevenue)}
+            </h3>
+
+            <div className="flex items-center gap-2">
+              <span className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded ${
+                annualAccumulated.vsLastYear >= 0 
+                  ? 'bg-emerald-500/30 text-emerald-300' 
+                  : 'bg-red-500/30 text-red-300'
+              }`}>
+                {annualAccumulated.vsLastYear >= 0 ? (
+                  <><ArrowUpRight size={10} /> +{annualAccumulated.vsLastYear.toFixed(1)}% vs {lastYear}</>
+                ) : (
+                  <><ArrowDownRight size={10} /> {annualAccumulated.vsLastYear.toFixed(1)}% vs {lastYear}</>
+                )}
+              </span>
+            </div>
+          </div>
+        </motion.div>
       </div>
 
       {/* Chart Section */}
@@ -419,21 +520,24 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
               Performance de Vendas {selectedYear}
             </h4>
             <p className="text-xs text-muted-foreground mt-1">
-              {period === 'monthly' 
-                ? `Evolução mensal com meta e comparativo ${lastYear}`
-                : 'Histórico anual de receita vs meta'}
+              {period === 'weekly' && `Evolução semanal de ${currentMonthMetrics.current.month}/${selectedYear}`}
+              {period === 'monthly' && `Evolução mensal com meta e comparativo ${lastYear}`}
+              {period === 'annual' && 'Histórico anual de receita vs meta'}
+              {period === 'comparative' && `Comparativo lado a lado: ${lastYear} vs ${selectedYear}`}
             </p>
           </div>
           
           <div className="bg-muted p-1 rounded-xl flex items-center gap-1 border border-border">
             {[
+              { id: 'weekly', label: 'Semanal' },
               { id: 'monthly', label: 'Mensal' },
               { id: 'annual', label: 'Anual' },
+              { id: 'comparative', label: 'Comparativo' },
             ].map(p => (
               <button
                 key={p.id}
-                onClick={() => setPeriod(p.id as 'monthly' | 'annual')}
-                className={`px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${
+                onClick={() => setPeriod(p.id as 'weekly' | 'monthly' | 'annual' | 'comparative')}
+                className={`px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${
                   period === p.id 
                     ? 'bg-primary text-primary-foreground shadow-md' 
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
@@ -548,15 +652,16 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
               />
               
               {/* Last year line (only for monthly view) */}
-              {period === 'monthly' && (
+              {(period === 'monthly' || period === 'comparative') && (
                 <Line
                   type="monotone"
                   dataKey="lastYear"
                   stroke="hsl(var(--muted-foreground))"
-                  strokeWidth={2}
-                  strokeDasharray="6 3"
-                  dot={false}
-                  opacity={0.4}
+                  strokeWidth={period === 'comparative' ? 3 : 2}
+                  strokeDasharray={period === 'comparative' ? undefined : "6 3"}
+                  dot={period === 'comparative' ? { fill: 'hsl(var(--muted-foreground))', r: 4, strokeWidth: 2, stroke: 'hsl(var(--background))' } : false}
+                  opacity={period === 'comparative' ? 0.8 : 0.4}
+                  name={lastYear.toString()}
                 />
               )}
               
@@ -620,17 +725,17 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
             <div className="w-4 h-4 rounded-full bg-emerald-500 shadow-sm" />
             <span className="text-xs font-medium text-muted-foreground">Meta Batida</span>
           </div>
+          {(period === 'monthly' || period === 'comparative') && (
+            <div className="flex items-center gap-2">
+              <div className={`w-6 h-0.5 bg-muted-foreground ${period === 'comparative' ? '' : 'opacity-40'}`} style={period === 'comparative' ? {} : { backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 3px, currentColor 3px, currentColor 6px)' }} />
+              <span className="text-xs font-medium text-muted-foreground">{lastYear}</span>
+            </div>
+          )}
           {period === 'monthly' && (
-            <>
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-0.5 bg-muted-foreground opacity-40" style={{ backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 3px, currentColor 3px, currentColor 6px)' }} />
-                <span className="text-xs font-medium text-muted-foreground">{lastYear}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-0.5 bg-amber-500" style={{ backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 5px, #f59e0b 5px, #f59e0b 10px)' }} />
-                <span className="text-xs font-medium text-muted-foreground">Projeção</span>
-              </div>
-            </>
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-0.5 bg-amber-500" style={{ backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 5px, #f59e0b 5px, #f59e0b 10px)' }} />
+              <span className="text-xs font-medium text-muted-foreground">Projeção</span>
+            </div>
           )}
         </div>
       </motion.div>
