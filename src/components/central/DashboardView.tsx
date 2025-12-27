@@ -66,23 +66,34 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
     };
   }, [data, lastYear]);
 
-  // Run Rate corrigido - baseado em semanas passadas, não dia do sistema
+  // Run Rate corrigido - baseado no mês selecionado dos dados, não dia do sistema
   const runRateMetrics = useMemo(() => {
     const { current } = currentMonthMetrics;
     
-    // Calcular dias úteis - usar dados reais quando disponíveis
-    // Para simplificar: assumir 22 dias úteis por mês
-    const totalWorkingDays = 22;
+    // Mapeamento de meses para número do mês
+    const monthMap: Record<string, number> = {
+      'Jan': 1, 'Fev': 2, 'Mar': 3, 'Abr': 4, 'Mai': 5, 'Jun': 6,
+      'Jul': 7, 'Ago': 8, 'Set': 9, 'Out': 10, 'Nov': 11, 'Dez': 12
+    };
+    
+    const currentMonthNumber = monthMap[current.month] || new Date().getMonth() + 1;
+    
+    // Calcular dias úteis no mês (aproximadamente 22 por mês)
+    const daysInMonth = new Date(selectedYear, currentMonthNumber, 0).getDate();
+    const totalWorkingDays = Math.round(daysInMonth * 0.72); // ~72% são dias úteis
     
     // Estimar dia atual baseado na progressão dos dados do time
-    // Se tivermos dados de semanas, podemos ser mais precisos
     const teamWeeksWithData = data.team.reduce((max, t) => {
       const weeksWithRevenue = t.weeks.filter(w => w.revenue > 0).length;
       return Math.max(max, weeksWithRevenue);
     }, 0);
     
+    // Cada semana tem ~5 dias úteis
     const estimatedWorkingDaysPassed = Math.max(1, teamWeeksWithData * 5);
-    const daysRemaining = Math.max(0, totalWorkingDays - estimatedWorkingDaysPassed);
+    
+    // Dias restantes considerando semanas com dados
+    // Se o mês já terminou (4+ semanas de dados), dias restantes = 0
+    const daysRemaining = teamWeeksWithData >= 4 ? 0 : Math.max(0, totalWorkingDays - estimatedWorkingDaysPassed);
     
     // Run rate baseado em média diária real
     const dailyAverage = estimatedWorkingDaysPassed > 0 ? current.revenue / estimatedWorkingDaysPassed : 0;
@@ -104,8 +115,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
       daysRemaining,
       dailyTargetRemaining,
       workingDaysPassed: estimatedWorkingDaysPassed,
+      isMonthComplete: teamWeeksWithData >= 4,
     };
-  }, [currentMonthMetrics, data.team]);
+  }, [currentMonthMetrics, data.team, selectedYear]);
 
   // Informações semanais para o mês atual
   const weeklyInfo = useMemo(() => {
@@ -370,8 +382,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
                   </p>
                 </div>
                 <div>
-                  <p className="text-[9px] text-slate-400 uppercase">Dias Restantes</p>
-                  <p className="text-sm font-bold text-white">{runRateMetrics.daysRemaining}</p>
+                  <p className="text-[9px] text-slate-400 uppercase">
+                    {runRateMetrics.isMonthComplete ? 'Status' : 'Dias Restantes'}
+                  </p>
+                  <p className="text-sm font-bold text-white">
+                    {runRateMetrics.isMonthComplete ? 'Mês encerrado' : runRateMetrics.daysRemaining}
+                  </p>
                 </div>
               </div>
             </div>
@@ -391,6 +407,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
             current: data.kpis.annualRealized,
             total: data.kpis.annualGoal,
             showBar: true,
+            showPercentageBadge: true,
           }}
           delay={3}
         />
