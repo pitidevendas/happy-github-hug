@@ -17,6 +17,7 @@ interface DashboardMetrics {
   currentMonthName: string;
   gapToGoal: number;
   daysRemaining: number;
+  selectedYear: number;
 }
 
 serve(async (req) => {
@@ -47,27 +48,32 @@ Regras:
 
     const userPrompt = `Analise estes dados de vendas e retorne insights em JSON:
 
+CONTEXTO:
+- Ano de referência: ${metrics.selectedYear}
+- Mês de análise: ${metrics.currentMonthName}/${metrics.selectedYear}
+
 DADOS:
-- Meta anual: R$ ${metrics.annualGoal.toLocaleString('pt-BR')}
-- Realizado no ano: R$ ${metrics.annualRealized.toLocaleString('pt-BR')} (${((metrics.annualRealized/metrics.annualGoal)*100).toFixed(1)}%)
-- Crescimento vs ano anterior: ${metrics.lastYearGrowth.toFixed(1)}%
-- Mês atual: ${metrics.currentMonthName}
-- Receita do mês: R$ ${metrics.currentMonthRevenue.toLocaleString('pt-BR')}
-- Meta do mês: R$ ${metrics.currentMonthGoal.toLocaleString('pt-BR')}
+- Meta anual ${metrics.selectedYear}: R$ ${metrics.annualGoal.toLocaleString('pt-BR')}
+- Realizado no ano ${metrics.selectedYear}: R$ ${metrics.annualRealized.toLocaleString('pt-BR')} (${((metrics.annualRealized/metrics.annualGoal)*100).toFixed(1)}%)
+- Crescimento vs ${metrics.selectedYear - 1}: ${metrics.lastYearGrowth.toFixed(1)}%
+- Receita de ${metrics.currentMonthName}/${metrics.selectedYear}: R$ ${metrics.currentMonthRevenue.toLocaleString('pt-BR')}
+- Meta de ${metrics.currentMonthName}/${metrics.selectedYear}: R$ ${metrics.currentMonthGoal.toLocaleString('pt-BR')}
 - Projeção (Run Rate): R$ ${metrics.runRateProjection.toLocaleString('pt-BR')}
-- Gap para meta do mês: R$ ${metrics.gapToGoal.toLocaleString('pt-BR')}
-- Dias úteis restantes: ${metrics.daysRemaining}
+- Valor faltante para meta: R$ ${metrics.gapToGoal.toLocaleString('pt-BR')}
+- Dias úteis restantes no mês: ${metrics.daysRemaining}
 - Ticket médio: R$ ${metrics.averageTicket.toLocaleString('pt-BR')}
-- Total de vendas: ${metrics.totalSalesCount}
+- Total de vendas no mês: ${metrics.totalSalesCount}
+
+IMPORTANTE: Sempre referencie o ano ${metrics.selectedYear} nas suas análises, nunca anos anteriores como contexto principal.
 
 Retorne APENAS este JSON (sem markdown, sem código):
 {
   "healthScore": <número de 0 a 100 representando saúde geral do negócio>,
   "healthStatus": "<'excellent' | 'good' | 'warning' | 'critical'>",
-  "mainInsight": "<insight principal motivador de 1-2 frases>",
+  "mainInsight": "<insight principal motivador de 1-2 frases, referenciando ${metrics.currentMonthName}/${metrics.selectedYear}>",
   "actionItem": "<ação concreta recomendada>",
   "salesNeeded": <número de vendas necessárias para bater a meta do mês, baseado no ticket médio>,
-  "dailyTarget": <meta diária para os dias restantes>
+  "dailyTarget": <meta diária em reais para os dias restantes>
 }`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
