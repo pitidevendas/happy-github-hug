@@ -20,7 +20,7 @@ const formatCurrency = (val: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(val);
 
 const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
-  const [period, setPeriod] = useState<'weekly' | 'monthly' | 'annual' | 'comparative'>('monthly');
+  const [period, setPeriod] = useState<'monthly' | 'quarterly' | 'annual' | 'comparative'>('monthly');
   const { insights, isLoading: insightsLoading, fetchInsights } = useAIInsights();
 
   // Derivar anos dinamicamente dos dados disponíveis
@@ -215,17 +215,31 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
 
   // Chart data com previsão
   const chartData = useMemo(() => {
-    // Dados semanais
-    if (period === 'weekly') {
-      const allTeamWeeks = data.team.flatMap(t => t.weeks);
-      return [1, 2, 3, 4, 5].map(week => {
-        const weekRevenue = allTeamWeeks.filter(w => w.week === week).reduce((sum, w) => sum + w.revenue, 0);
-        const weekGoal = allTeamWeeks.filter(w => w.week === week).reduce((sum, w) => sum + w.goal, 0);
-        return { 
-          name: `Sem ${week}`, 
-          revenue: weekRevenue, 
-          goal: weekGoal,
-          lastYear: 0,
+    // Dados trimestrais
+    if (period === 'quarterly') {
+      const quarters = [
+        { name: 'Q1', months: ['Jan', 'Fev', 'Mar'] },
+        { name: 'Q2', months: ['Abr', 'Mai', 'Jun'] },
+        { name: 'Q3', months: ['Jul', 'Ago', 'Set'] },
+        { name: 'Q4', months: ['Out', 'Nov', 'Dez'] },
+      ];
+      
+      return quarters.map(q => {
+        const currentYearRevenue = data.currentYearData
+          .filter(d => q.months.includes(d.month))
+          .reduce((sum, d) => sum + d.revenue, 0);
+        const currentYearGoal = data.currentYearData
+          .filter(d => q.months.includes(d.month))
+          .reduce((sum, d) => sum + d.goal, 0);
+        const lastYearRevenue = data.historicalData
+          .filter(d => d.year === lastYear && q.months.includes(d.month))
+          .reduce((sum, d) => sum + d.revenue, 0);
+        
+        return {
+          name: q.name,
+          revenue: currentYearRevenue,
+          goal: currentYearGoal,
+          lastYear: lastYearRevenue,
           forecast: null as number | null,
         };
       });
@@ -520,8 +534,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
               Performance de Vendas {selectedYear}
             </h4>
             <p className="text-xs text-muted-foreground mt-1">
-              {period === 'weekly' && `Evolução semanal de ${currentMonthMetrics.current.month}/${selectedYear}`}
               {period === 'monthly' && `Evolução mensal com meta e comparativo ${lastYear}`}
+              {period === 'quarterly' && `Evolução trimestral ${selectedYear} vs ${lastYear}`}
               {period === 'annual' && 'Histórico anual de receita vs meta'}
               {period === 'comparative' && `Comparativo lado a lado: ${lastYear} vs ${selectedYear}`}
             </p>
@@ -529,14 +543,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
           
           <div className="bg-muted p-1 rounded-xl flex items-center gap-1 border border-border">
             {[
-              { id: 'weekly', label: 'Semanal' },
               { id: 'monthly', label: 'Mensal' },
+              { id: 'quarterly', label: 'Trimestral' },
               { id: 'annual', label: 'Anual' },
               { id: 'comparative', label: 'Comparativo' },
             ].map(p => (
               <button
                 key={p.id}
-                onClick={() => setPeriod(p.id as 'weekly' | 'monthly' | 'annual' | 'comparative')}
+                onClick={() => setPeriod(p.id as 'monthly' | 'quarterly' | 'annual' | 'comparative')}
                 className={`px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${
                   period === p.id 
                     ? 'bg-primary text-primary-foreground shadow-md' 
@@ -651,16 +665,16 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
                 maxBarSize={40}
               />
               
-              {/* Last year line (only for monthly view) */}
-              {(period === 'monthly' || period === 'comparative') && (
+              {/* Last year line (for monthly, quarterly, and comparative views) */}
+              {(period === 'monthly' || period === 'quarterly' || period === 'comparative') && (
                 <Line
                   type="monotone"
                   dataKey="lastYear"
                   stroke="hsl(var(--muted-foreground))"
                   strokeWidth={period === 'comparative' ? 3 : 2}
                   strokeDasharray={period === 'comparative' ? undefined : "6 3"}
-                  dot={period === 'comparative' ? { fill: 'hsl(var(--muted-foreground))', r: 4, strokeWidth: 2, stroke: 'hsl(var(--background))' } : false}
-                  opacity={period === 'comparative' ? 0.8 : 0.4}
+                  dot={period === 'comparative' || period === 'quarterly' ? { fill: 'hsl(var(--muted-foreground))', r: 4, strokeWidth: 2, stroke: 'hsl(var(--background))' } : false}
+                  opacity={period === 'comparative' || period === 'quarterly' ? 0.8 : 0.4}
                   name={lastYear.toString()}
                 />
               )}
@@ -725,7 +739,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
             <div className="w-4 h-4 rounded-full bg-emerald-500 shadow-sm" />
             <span className="text-xs font-medium text-muted-foreground">Meta Batida</span>
           </div>
-          {(period === 'monthly' || period === 'comparative') && (
+          {(period === 'monthly' || period === 'quarterly' || period === 'comparative') && (
             <div className="flex items-center gap-2">
               <div className={`w-6 h-0.5 bg-muted-foreground ${period === 'comparative' ? '' : 'opacity-40'}`} style={period === 'comparative' ? {} : { backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 3px, currentColor 3px, currentColor 6px)' }} />
               <span className="text-xs font-medium text-muted-foreground">{lastYear}</span>
