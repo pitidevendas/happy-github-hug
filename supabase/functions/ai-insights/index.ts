@@ -35,6 +35,7 @@ serve(async (req) => {
     }
 
     console.log("[ai-insights] Generating insights for metrics:", metrics);
+    console.log("[ai-insights] Selected year:", metrics.selectedYear);
 
     const systemPrompt = `Você é um consultor de vendas experiente e motivador. Analise os dados de performance de vendas e forneça insights acionáveis e motivadores em português brasileiro.
 
@@ -44,6 +45,7 @@ Regras:
 - Foque em ações concretas que podem ser tomadas
 - Quando houver gap negativo, sugira estratégias de recuperação
 - Use emojis com moderação (1-2 por insight)
+- SEMPRE referencie o ano ${metrics.selectedYear} nos insights, NUNCA anos anteriores
 - Retorne EXATAMENTE no formato JSON solicitado`;
 
     const userPrompt = `Analise estes dados de vendas e retorne insights em JSON:

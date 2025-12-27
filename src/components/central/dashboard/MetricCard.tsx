@@ -11,6 +11,7 @@ interface MetricCardProps {
     current: number;
     total: number;
     showBar?: boolean;
+    showPercentageBadge?: boolean; // Show percentage badge instead of just bar
   };
   comparison?: {
     value: number;
@@ -130,6 +131,30 @@ const MetricCard: React.FC<MetricCardProps> = ({
         </div>
       )}
 
+      {/* Progress with Percentage Badge */}
+      {progress && progress.showPercentageBadge && (
+        <div className="flex items-center gap-2 mb-3">
+          <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg ${
+            progressPercent >= 100 
+              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' 
+              : progressPercent >= 80
+                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                : 'bg-red-500/10 text-red-600 dark:text-red-400'
+          }`}>
+            {progressPercent >= 100 ? (
+              <><TrendingUp size={12} /> +{(progressPercent - 100).toFixed(1)}% acima</>
+            ) : (
+              <><TrendingDown size={12} /> -{(100 - progressPercent).toFixed(1)}% faltando</>
+            )}
+          </span>
+          <span className={`text-[10px] ${
+            variant === 'dark' ? 'text-slate-400' : 'text-muted-foreground'
+          }`}>
+            da meta
+          </span>
+        </div>
+      )}
+
       {/* Progress Bar */}
       {progress && progress.showBar && (
         <div>
@@ -142,7 +167,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
           } overflow-hidden`}>
             <motion.div
               initial={{ width: 0 }}
-              animate={{ width: `${progressPercent}%` }}
+              animate={{ width: `${Math.min(progressPercent, 100)}%` }}
               transition={{ duration: 1, delay: delay * 0.1 + 0.3 }}
               className={`h-full rounded-full ${
                 progressPercent >= 100 

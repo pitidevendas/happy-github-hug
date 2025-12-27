@@ -42,11 +42,14 @@ interface CachedInsights {
 }
 
 const hashMetrics = (metrics: DashboardMetrics): string => {
+  // Include selectedYear in hash to invalidate cache when year changes
   return JSON.stringify({
     annualGoal: Math.round(metrics.annualGoal),
     annualRealized: Math.round(metrics.annualRealized),
     currentMonthRevenue: Math.round(metrics.currentMonthRevenue),
     currentMonthGoal: Math.round(metrics.currentMonthGoal),
+    selectedYear: metrics.selectedYear,
+    currentMonthName: metrics.currentMonthName,
   });
 };
 
