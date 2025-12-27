@@ -1,15 +1,14 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, ComposedChart, Bar, ReferenceLine, Line
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, ComposedChart, Bar, ReferenceLine, Line, Cell
 } from 'recharts';
 import {
-  TrendingUp, Target, Calendar, DollarSign, CreditCard, Users, Activity, Percent, ShoppingBag, Zap, ArrowUpRight, ArrowDownRight, ShoppingCart
+  TrendingUp, Target, Calendar, DollarSign, CreditCard, Users, Activity, Percent, ShoppingBag, Zap, ArrowUpRight, ArrowDownRight, ShoppingCart, Trophy, AlertTriangle
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import InfoTooltip from './InfoTooltip';
 import PulseCard from './dashboard/PulseCard';
 import MetricCard from './dashboard/MetricCard';
-import { GamificationSection } from './dashboard/GamificationBadge';
 import useAIInsights from '@/hooks/useAIInsights';
 import { DashboardData } from '@/types';
 
@@ -89,13 +88,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
     const dailyAverage = estimatedWorkingDaysPassed > 0 ? current.revenue / estimatedWorkingDaysPassed : 0;
     const projection = dailyAverage * totalWorkingDays;
     
-    const gap = current.goal - projection;
+    const gap = current.goal - current.revenue; // Valor faltante em R$
     const status = projection >= current.goal ? 'on_track' : 'below';
-    
-    // Vendas necessárias para bater a meta
-    const salesNeeded = data.kpis.averageTicket > 0 
-      ? Math.ceil(Math.max(0, current.goal - current.revenue) / data.kpis.averageTicket)
-      : 0;
     
     // Meta diária para os dias restantes
     const dailyTargetRemaining = daysRemaining > 0 
@@ -108,11 +102,36 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
       status,
       dailyAverage,
       daysRemaining,
-      salesNeeded,
       dailyTargetRemaining,
       workingDaysPassed: estimatedWorkingDaysPassed,
     };
-  }, [currentMonthMetrics, data.team, data.kpis.averageTicket]);
+  }, [currentMonthMetrics, data.team]);
+
+  // Informações semanais para o mês atual
+  const weeklyInfo = useMemo(() => {
+    const allTeamWeeks = data.team.flatMap(t => t.weeks);
+    const weeklyTotals = [1, 2, 3, 4, 5].map(week => ({
+      week,
+      revenue: allTeamWeeks.filter(w => w.week === week).reduce((sum, w) => sum + w.revenue, 0),
+      goal: allTeamWeeks.filter(w => w.week === week).reduce((sum, w) => sum + w.goal, 0),
+    }));
+    
+    // Encontrar a semana atual (última com dados)
+    const currentWeekIndex = weeklyTotals.reduce((lastIdx, w, idx) => 
+      w.revenue > 0 ? idx : lastIdx, 0);
+    const currentWeek = weeklyTotals[currentWeekIndex];
+    
+    const weeklyGoalPercent = currentWeek.goal > 0 
+      ? (currentWeek.revenue / currentWeek.goal) * 100 
+      : 0;
+    
+    return {
+      currentWeek: currentWeekIndex + 1,
+      weeklyRevenue: currentWeek.revenue,
+      weeklyGoal: currentWeek.goal,
+      weeklyGoalPercent,
+    };
+  }, [data.team]);
 
   // Comparativos
   const comparisons = useMemo(() => {
@@ -135,37 +154,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
     };
   }, [currentMonthMetrics]);
 
-  // Gamificação - calcular streaks e conquistas
-  const gamificationMetrics = useMemo(() => {
-    // Streak: semanas consecutivas acima de 80% da meta
-    let currentStreak = 0;
-    const allTeamWeeks = data.team.flatMap(t => t.weeks);
-    const weeklyTotals = [1, 2, 3, 4, 5].map(week => ({
-      revenue: allTeamWeeks.filter(w => w.week === week).reduce((sum, w) => sum + w.revenue, 0),
-      goal: allTeamWeeks.filter(w => w.week === week).reduce((sum, w) => sum + w.goal, 0),
-    }));
-    
-    for (let i = weeklyTotals.length - 1; i >= 0; i--) {
-      const { revenue, goal } = weeklyTotals[i];
-      if (goal > 0 && (revenue / goal) >= 0.8) {
-        currentStreak++;
-      } else {
-        break;
-      }
-    }
-
-    // Semanas com meta batida
-    const weeklyGoalsMet = weeklyTotals.filter(w => w.goal > 0 && w.revenue >= w.goal).length;
-
-    // Conquistas (simplificado)
-    let achievements = 0;
-    if (currentMonthMetrics.progressPercent >= 100) achievements++;
-    if (data.kpis.lastYearGrowth > 10) achievements++;
-    if (data.team.filter(t => t.totalRevenue >= t.monthlyGoal).length >= data.team.length * 0.8) achievements++;
-
-    return { currentStreak, weeklyGoalsMet, achievements };
-  }, [data.team, currentMonthMetrics.progressPercent, data.kpis.lastYearGrowth]);
-
   // Buscar insights de IA quando os dados mudarem
   const refreshInsights = useCallback(() => {
     const metrics = {
@@ -180,9 +168,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
       currentMonthName: currentMonthMetrics.current.month,
       gapToGoal: Math.max(0, currentMonthMetrics.current.goal - currentMonthMetrics.current.revenue),
       daysRemaining: runRateMetrics.daysRemaining,
+      selectedYear: selectedYear,
     };
     fetchInsights(metrics);
-  }, [data.kpis, currentMonthMetrics, runRateMetrics, fetchInsights]);
+  }, [data.kpis, currentMonthMetrics, runRateMetrics, fetchInsights, selectedYear]);
 
   useEffect(() => {
     if (data.kpis.annualGoal > 0) {
@@ -259,25 +248,70 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
 
         {/* Main Metrics */}
         <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Meta do Mês */}
-          <MetricCard
-            title="Meta do Mês"
-            subtitle={currentMonthMetrics.current.month}
-            value={currentMonthMetrics.current.goal}
-            formatter={formatCurrency}
-            icon={<Target size={20} />}
-            progress={{
-              current: currentMonthMetrics.current.revenue,
-              total: currentMonthMetrics.current.goal,
-              showBar: true,
-            }}
-            delay={0}
-          />
+          {/* Meta Prevista do Mês */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0 }}
+            className="relative overflow-hidden rounded-2xl p-5 bg-card shadow-lg border border-border"
+          >
+            <div className="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-full blur-2xl" />
+            
+            <div className="relative z-10">
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Meta Prevista
+                  </p>
+                  <p className="text-xs text-primary font-semibold">{currentMonthMetrics.current.month}/{selectedYear}</p>
+                </div>
+                <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                  <Target size={18} />
+                </div>
+              </div>
+              
+              <h3 className="text-2xl font-black text-foreground mb-2">
+                {formatCurrency(currentMonthMetrics.current.goal)}
+              </h3>
+
+              {/* Percentual realizado vs previsto */}
+              <div className="flex items-center gap-2 mb-3">
+                <span className={`flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded ${
+                  currentMonthMetrics.progressPercent >= 100 
+                    ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' 
+                    : currentMonthMetrics.progressPercent >= 80
+                    ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400'
+                    : 'bg-red-500/20 text-red-600 dark:text-red-400'
+                }`}>
+                  {currentMonthMetrics.progressPercent >= 100 ? (
+                    <><Trophy size={12} /> +{(currentMonthMetrics.progressPercent - 100).toFixed(0)}% acima</>
+                  ) : (
+                    <><AlertTriangle size={12} /> -{(100 - currentMonthMetrics.progressPercent).toFixed(0)}% faltando</>
+                  )}
+                </span>
+              </div>
+
+              {/* Info semanal para mês incompleto */}
+              {runRateMetrics.daysRemaining > 0 && (
+                <div className="pt-2 border-t border-border">
+                  <p className="text-[9px] text-muted-foreground uppercase mb-1">Semana {weeklyInfo.currentWeek}</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-foreground font-medium">{formatCurrency(weeklyInfo.weeklyRevenue)}</span>
+                    <span className={`text-[10px] font-bold ${
+                      weeklyInfo.weeklyGoalPercent >= 100 ? 'text-emerald-500' : 'text-amber-500'
+                    }`}>
+                      {weeklyInfo.weeklyGoalPercent.toFixed(0)}% da meta semanal
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
 
           {/* Realizado no Mês */}
           <MetricCard
             title="Realizado"
-            subtitle={currentMonthMetrics.current.month}
+            subtitle={`${currentMonthMetrics.current.month}/${selectedYear}`}
             value={currentMonthMetrics.current.revenue}
             formatter={formatCurrency}
             icon={<DollarSign size={20} />}
@@ -302,7 +336,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
               <div className="flex justify-between items-start mb-2">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
-                    Projeção {currentMonthMetrics.current.month}
+                    Projeção {currentMonthMetrics.current.month}/{selectedYear}
                   </p>
                 </div>
                 <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400">
@@ -330,8 +364,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
 
               <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-700">
                 <div>
-                  <p className="text-[9px] text-slate-400 uppercase">Vendas p/ Meta</p>
-                  <p className="text-sm font-bold text-white">{runRateMetrics.salesNeeded}</p>
+                  <p className="text-[9px] text-slate-400 uppercase">Valor p/ Meta</p>
+                  <p className="text-sm font-bold text-white">
+                    {runRateMetrics.gap > 0 ? formatCurrency(runRateMetrics.gap) : '✓ Meta atingida'}
+                  </p>
                 </div>
                 <div>
                   <p className="text-[9px] text-slate-400 uppercase">Dias Restantes</p>
@@ -347,6 +383,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           title="Meta Anual"
+          subtitle={selectedYear.toString()}
           value={data.kpis.annualGoal}
           formatter={formatCurrency}
           icon={<Target size={18} />}
@@ -360,6 +397,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
 
         <MetricCard
           title="Acumulado Ano"
+          subtitle={selectedYear.toString()}
           value={data.kpis.annualRealized}
           formatter={formatCurrency}
           icon={<TrendingUp size={18} />}
@@ -388,24 +426,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
         />
       </div>
 
-      {/* Gamification Row */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-        className="flex items-center justify-between flex-wrap gap-4 p-4 bg-card rounded-2xl border border-border"
-      >
-        <div>
-          <h4 className="text-sm font-bold text-foreground mb-1">Conquistas & Streaks</h4>
-          <p className="text-xs text-muted-foreground">Mantenha o ritmo para desbloquear mais!</p>
-        </div>
-        <GamificationSection
-          currentStreak={gamificationMetrics.currentStreak}
-          weeklyGoalsMet={gamificationMetrics.weeklyGoalsMet}
-          totalMilestones={gamificationMetrics.achievements}
-        />
-      </motion.div>
-
       {/* Chart Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -417,27 +437,27 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
           <div>
             <h4 className="text-lg font-bold text-foreground flex items-center gap-2">
               <TrendingUp className="text-primary" size={20} />
-              Performance de Vendas
+              Performance de Vendas {selectedYear}
             </h4>
             <p className="text-xs text-muted-foreground mt-1">
               {period === 'monthly' 
-                ? 'Comparativo mensal com projeção e ano anterior'
-                : 'Evolução anual de receita'}
+                ? `Evolução mensal com meta e comparativo ${lastYear}`
+                : 'Histórico anual de receita vs meta'}
             </p>
           </div>
           
           <div className="bg-muted p-1 rounded-xl flex items-center gap-1 border border-border">
             {[
               { id: 'monthly', label: 'Mensal' },
-              { id: 'annual', label: 'Anual' }
+              { id: 'annual', label: 'Anual' },
             ].map(p => (
               <button
                 key={p.id}
                 onClick={() => setPeriod(p.id as 'monthly' | 'annual')}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${
+                className={`px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${
                   period === p.id 
-                    ? 'bg-card text-primary shadow-sm' 
-                    : 'text-muted-foreground hover:text-foreground'
+                    ? 'bg-primary text-primary-foreground shadow-md' 
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
                 }`}
               >
                 {p.label}
@@ -446,21 +466,25 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
           </div>
         </div>
 
-        <div className="h-72 w-full">
+        <div className="h-80 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            <ComposedChart data={chartData} margin={{ top: 20, right: 20, left: -10, bottom: 10 }}>
               <defs>
                 <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
+                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.05} />
+                </linearGradient>
+                <linearGradient id="goalGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.1} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} className="opacity-30" />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" opacity={0.5} />
               <XAxis 
                 dataKey="name" 
                 tickLine={false} 
                 axisLine={false} 
-                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} 
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11, fontWeight: 500 }} 
                 dy={10} 
               />
               <YAxis 
@@ -468,29 +492,80 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
                 tickLine={false} 
                 axisLine={false} 
                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} 
+                width={45}
               />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '12px',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                content={({ active, payload, label }) => {
+                  if (!active || !payload || payload.length === 0) return null;
+                  
+                  const data = payload[0]?.payload;
+                  const revenue = data?.revenue || 0;
+                  const goal = data?.goal || 0;
+                  const lastYearValue = data?.lastYear || 0;
+                  const progressPercent = goal > 0 ? (revenue / goal) * 100 : 0;
+                  const vsLastYear = lastYearValue > 0 ? ((revenue - lastYearValue) / lastYearValue) * 100 : 0;
+                  
+                  return (
+                    <div className="bg-card/95 backdrop-blur-lg border border-border rounded-xl p-4 shadow-xl min-w-[200px]">
+                      <p className="text-sm font-bold text-foreground mb-3 pb-2 border-b border-border">{label}/{selectedYear}</p>
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Realizado</span>
+                          <span className="text-sm font-bold text-foreground">{formatCurrency(revenue)}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Meta</span>
+                          <span className="text-sm font-medium text-muted-foreground">{formatCurrency(goal)}</span>
+                        </div>
+                        <div className="flex items-center justify-between pt-2 border-t border-border">
+                          <span className="text-xs text-muted-foreground">% da Meta</span>
+                          <span className={`text-sm font-bold ${
+                            progressPercent >= 100 ? 'text-emerald-500' : 
+                            progressPercent >= 80 ? 'text-amber-500' : 'text-red-500'
+                          }`}>
+                            {progressPercent.toFixed(0)}%
+                          </span>
+                        </div>
+                        {period === 'monthly' && lastYearValue > 0 && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-muted-foreground">vs {lastYear}</span>
+                            <span className={`text-sm font-bold ${vsLastYear >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                              {vsLastYear >= 0 ? '+' : ''}{vsLastYear.toFixed(1)}%
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
                 }}
-                formatter={(value: number, name: string) => [
-                  formatCurrency(value),
-                  name === 'revenue' ? 'Realizado' : 
-                  name === 'goal' ? 'Meta' : 
-                  name === 'lastYear' ? `${lastYear}` :
-                  name === 'forecast' ? 'Projeção' : name
-                ]}
               />
               
-              {/* Goal bars */}
+              {/* Goal Reference Line */}
+              {period === 'monthly' && currentMonthMetrics.current.goal > 0 && (
+                <ReferenceLine 
+                  y={currentMonthMetrics.current.goal} 
+                  stroke="hsl(var(--primary))" 
+                  strokeDasharray="8 4" 
+                  strokeWidth={2}
+                  opacity={0.6}
+                  label={{ 
+                    value: `Meta: ${formatCurrency(currentMonthMetrics.current.goal)}`, 
+                    position: 'right',
+                    fill: 'hsl(var(--primary))',
+                    fontSize: 10,
+                    fontWeight: 600
+                  }}
+                />
+              )}
+              
+              {/* Goal bars with colored feedback */}
               <Bar 
                 dataKey="goal" 
-                fill="hsl(var(--muted))" 
-                radius={[4, 4, 0, 0]} 
-                opacity={0.6}
+                fill="url(#goalGradient)" 
+                radius={[6, 6, 0, 0]} 
+                opacity={0.7}
+                maxBarSize={40}
               />
               
               {/* Last year line (only for monthly view) */}
@@ -500,9 +575,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
                   dataKey="lastYear"
                   stroke="hsl(var(--muted-foreground))"
                   strokeWidth={2}
-                  strokeDasharray="5 5"
+                  strokeDasharray="6 3"
                   dot={false}
-                  opacity={0.5}
+                  opacity={0.4}
                 />
               )}
               
@@ -511,46 +586,70 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
                 <Line
                   type="monotone"
                   dataKey="forecast"
-                  stroke="hsl(var(--amber))"
-                  strokeWidth={2}
-                  strokeDasharray="8 4"
-                  dot={{ fill: 'hsl(var(--amber))', r: 4 }}
+                  stroke="#f59e0b"
+                  strokeWidth={3}
+                  strokeDasharray="10 5"
+                  dot={{ fill: '#f59e0b', r: 5, strokeWidth: 2, stroke: 'hsl(var(--card))' }}
                   connectNulls={false}
                 />
               )}
               
-              {/* Revenue area */}
+              {/* Revenue area with dynamic styling */}
               <Area
                 type="monotone"
                 dataKey="revenue"
                 stroke="hsl(var(--primary))"
                 strokeWidth={3}
                 fill="url(#revenueGradient)"
-                activeDot={{ r: 6, stroke: 'hsl(var(--background))', strokeWidth: 2 }}
+                activeDot={{ 
+                  r: 8, 
+                  stroke: 'hsl(var(--primary))', 
+                  strokeWidth: 3,
+                  fill: 'hsl(var(--background))'
+                }}
+                dot={(props: any) => {
+                  const { cx, cy, payload } = props;
+                  if (!payload || payload.revenue === 0) return null;
+                  const isAboveGoal = payload.goal > 0 && payload.revenue >= payload.goal;
+                  return (
+                    <circle 
+                      cx={cx} 
+                      cy={cy} 
+                      r={isAboveGoal ? 6 : 4} 
+                      fill={isAboveGoal ? '#10b981' : 'hsl(var(--primary))'} 
+                      stroke="hsl(var(--background))" 
+                      strokeWidth={2}
+                    />
+                  );
+                }}
               />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
 
         {/* Chart Legend */}
-        <div className="flex flex-wrap items-center justify-center gap-4 mt-4 pt-4 border-t border-border">
+        <div className="flex flex-wrap items-center justify-center gap-6 mt-4 pt-4 border-t border-border">
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-primary" />
-            <span className="text-xs text-muted-foreground">Realizado</span>
+            <div className="w-4 h-4 rounded-full bg-primary shadow-sm" />
+            <span className="text-xs font-medium text-muted-foreground">Realizado</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded bg-muted" />
-            <span className="text-xs text-muted-foreground">Meta</span>
+            <div className="w-4 h-3 rounded bg-muted-foreground/30" />
+            <span className="text-xs font-medium text-muted-foreground">Meta</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded-full bg-emerald-500 shadow-sm" />
+            <span className="text-xs font-medium text-muted-foreground">Meta Batida</span>
           </div>
           {period === 'monthly' && (
             <>
               <div className="flex items-center gap-2">
-                <div className="w-6 h-0.5 bg-muted-foreground" style={{ backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 2px, hsl(var(--muted-foreground)) 2px, hsl(var(--muted-foreground)) 4px)' }} />
-                <span className="text-xs text-muted-foreground">{lastYear}</span>
+                <div className="w-6 h-0.5 bg-muted-foreground opacity-40" style={{ backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 3px, currentColor 3px, currentColor 6px)' }} />
+                <span className="text-xs font-medium text-muted-foreground">{lastYear}</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-6 h-0.5" style={{ backgroundColor: 'hsl(var(--amber))', backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 4px, hsl(var(--amber)) 4px, hsl(var(--amber)) 8px)' }} />
-                <span className="text-xs text-muted-foreground">Projeção</span>
+                <div className="w-6 h-0.5 bg-amber-500" style={{ backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 5px, #f59e0b 5px, #f59e0b 10px)' }} />
+                <span className="text-xs font-medium text-muted-foreground">Projeção</span>
               </div>
             </>
           )}

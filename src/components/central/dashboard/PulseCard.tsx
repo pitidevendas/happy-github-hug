@@ -75,7 +75,7 @@ const PulseCard: React.FC<PulseCardProps> = ({ insights, isLoading, onRefresh })
               <Sparkles className="w-5 h-5" />
               <span className={`absolute -top-1 -right-1 w-2 h-2 ${config.pulseColor} rounded-full animate-ping`} />
             </div>
-            <span className="text-xs font-bold uppercase tracking-widest opacity-90">Pulse do Negócio</span>
+            <span className="text-xs font-bold uppercase tracking-widest opacity-90">Dedo no Pulso</span>
           </div>
           <button
             onClick={onRefresh}

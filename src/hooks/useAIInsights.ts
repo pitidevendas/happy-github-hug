@@ -13,6 +13,7 @@ interface DashboardMetrics {
   currentMonthName: string;
   gapToGoal: number;
   daysRemaining: number;
+  selectedYear: number;
 }
 
 interface AIInsights {
