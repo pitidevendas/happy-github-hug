@@ -365,7 +365,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
           delay={1}
         />
 
-        {/* Projeção Run Rate */}
+        {/* Run Rate - Projeção do Mês */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -376,11 +376,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
           
           <div className="relative z-10">
             <div className="flex justify-between items-start mb-2">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
-                  Projeção
-                </p>
-                <p className="text-xs text-slate-400 font-semibold">{currentMonthMetrics.current.month}/{selectedYear}</p>
+              <div className="flex items-center gap-1">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                    Run Rate
+                  </p>
+                  <p className="text-xs text-slate-400 font-semibold">{currentMonthMetrics.current.month}/{selectedYear}</p>
+                </div>
+                <InfoTooltip text="Projeção do mês baseada no ritmo atual de vendas. Diferente da Projeção Anual que usa a média mensal do ano." />
               </div>
               <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400">
                 <Zap size={16} fill="currentColor" />
