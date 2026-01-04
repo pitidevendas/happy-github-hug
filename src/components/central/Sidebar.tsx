@@ -1,6 +1,7 @@
 import React from 'react';
 import { ViewState, UserRole } from '@/types';
 import Logo from './Logo';
+import { Separator } from '@/components/ui/separator';
 import {
   LayoutDashboard,
   Users,
@@ -28,6 +29,21 @@ interface SidebarProps {
   customLogoUrl?: string;
 }
 
+interface NavItem {
+  id: ViewState;
+  label: string;
+  icon: React.ElementType;
+  consultantOnly?: boolean;
+  iconClass?: string;
+}
+
+interface Section {
+  label: string;
+  showSeparator?: boolean;
+  consultantOnly?: boolean;
+  items: NavItem[];
+}
+
 const Sidebar: React.FC<SidebarProps> = ({
   currentView,
   onChangeView,
@@ -37,25 +53,35 @@ const Sidebar: React.FC<SidebarProps> = ({
   onToggleTheme,
   customLogoUrl
 }) => {
-  const navItems: { id: ViewState; label: string; icon: React.ReactNode; consultantOnly?: boolean }[] = [
-    { id: 'agency-global', label: 'Visão Global Agência', icon: <Globe size={20} strokeWidth={1.5} className="text-cyan-500" />, consultantOnly: true },
-    { id: 'dashboard', label: 'Visão Geral', icon: <LayoutDashboard size={20} strokeWidth={1.5} /> },
-    { id: 'seasonality', label: 'Sazonalidade', icon: <CalendarDays size={20} strokeWidth={1.5} /> },
-    { id: 'team', label: 'Equipe', icon: <Users size={20} strokeWidth={1.5} /> },
-    { id: 'pgv', label: 'PGV Semanal', icon: <BarChart3 size={20} strokeWidth={1.5} /> },
-    { id: 'insights', label: 'Insights', icon: <Lightbulb size={20} strokeWidth={1.5} /> },
-    { id: 'ai-summary', label: 'Sumário Executivo', icon: <FileText size={20} strokeWidth={1.5} /> },
-    { id: 'glossary', label: 'Glossário', icon: <BookOpen size={20} strokeWidth={1.5} /> },
-    { id: 'admin-users', label: 'Gestão de Alunos', icon: <UserPlus size={20} strokeWidth={1.5} />, consultantOnly: true },
-    { id: 'settings', label: 'Configurações', icon: <Settings size={20} strokeWidth={1.5} />, consultantOnly: true },
-  ];
-
-  const visibleItems = navItems.filter(item => {
-    if (userRole === 'business_owner' && item.consultantOnly) {
-      return false;
+  const sections: Section[] = [
+    {
+      label: 'Análise',
+      items: [
+        { id: 'agency-global', label: 'Visão Global', icon: Globe, consultantOnly: true, iconClass: 'text-cyan-500' },
+        { id: 'dashboard', label: 'Visão Geral', icon: LayoutDashboard },
+        { id: 'seasonality', label: 'Sazonalidade', icon: CalendarDays },
+        { id: 'team', label: 'Equipe', icon: Users },
+        { id: 'pgv', label: 'PGV Semanal', icon: BarChart3 },
+      ]
+    },
+    {
+      label: 'Inteligência',
+      items: [
+        { id: 'insights', label: 'Insights', icon: Lightbulb },
+        { id: 'ai-summary', label: 'Sumário Executivo', icon: FileText },
+        { id: 'glossary', label: 'Glossário', icon: BookOpen },
+      ]
+    },
+    {
+      label: 'Gestão',
+      showSeparator: true,
+      consultantOnly: true,
+      items: [
+        { id: 'admin-users', label: 'Gestão de Alunos', icon: UserPlus, consultantOnly: true },
+        { id: 'settings', label: 'Configurações', icon: Settings, consultantOnly: true },
+      ]
     }
-    return true;
-  });
+  ];
 
   return (
     <aside className="w-64 bg-card/80 backdrop-blur-xl border-r border-border h-screen fixed left-0 top-0 flex flex-col z-10 no-print shadow-2xl transition-colors duration-300">
@@ -63,27 +89,57 @@ const Sidebar: React.FC<SidebarProps> = ({
         <Logo customLogoUrl={customLogoUrl} />
       </div>
 
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto scrollbar-thin">
-        {visibleItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => onChangeView(item.id)}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 group relative overflow-hidden ${
-              currentView === item.id
-                ? 'bg-primary/10 text-primary shadow-[0_0_15px_hsl(var(--primary)/0.15)]'
-                : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-            }`}
-          >
-            {currentView === item.id && (
-              <div className="absolute inset-y-0 left-0 w-1 bg-primary rounded-r-full shadow-[0_0_10px_currentColor]"></div>
-            )}
+      <nav className="flex-1 p-4 overflow-y-auto scrollbar-thin">
+        {sections.map((section, sectionIdx) => {
+          const visibleItems = section.items.filter(item => 
+            !(userRole === 'business_owner' && item.consultantOnly)
+          );
+          
+          if (visibleItems.length === 0) return null;
+          if (section.consultantOnly && userRole === 'business_owner') return null;
 
-            <span className={`transition-colors duration-200 ${currentView === item.id ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`}>
-              {item.icon}
-            </span>
-            {item.label}
-          </button>
-        ))}
+          return (
+            <div key={section.label} className={sectionIdx > 0 ? 'mt-6' : ''}>
+              {section.showSeparator && (
+                <Separator className="mb-4 bg-border/50" />
+              )}
+              
+              <p className="px-4 mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+                {section.label}
+              </p>
+              
+              <div className="space-y-1">
+                {visibleItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = currentView === item.id;
+                  
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => onChangeView(item.id)}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 group relative overflow-hidden ${
+                        isActive
+                          ? 'bg-primary/10 text-primary shadow-[0_0_15px_hsl(var(--primary)/0.15)]'
+                          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                      }`}
+                    >
+                      {isActive && (
+                        <div className="absolute inset-y-0 left-0 w-1 bg-primary rounded-r-full shadow-[0_0_10px_currentColor]"></div>
+                      )}
+
+                      <Icon 
+                        size={18} 
+                        strokeWidth={1.5} 
+                        className={item.iconClass || (isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground')}
+                      />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </nav>
 
       <div className="p-4 border-t border-border bg-muted/30 space-y-3">
