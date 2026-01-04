@@ -10,7 +10,7 @@ import InfoTooltip from './InfoTooltip';
 import PulseCard from './dashboard/PulseCard';
 import MetricCard from './dashboard/MetricCard';
 import JourneyBanner from './dashboard/JourneyBanner';
-import GoalPercentChart from './dashboard/GoalPercentChart';
+
 import ComparativeInsights from './dashboard/ComparativeInsights';
 import useAIInsights from '@/hooks/useAIInsights';
 import { DashboardData } from '@/types';
@@ -800,11 +800,6 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
         </div>
       </motion.div>
 
-      {/* Goal Percent Chart */}
-      <GoalPercentChart
-        currentYearData={data.currentYearData}
-        selectedYear={selectedYear}
-      />
 
       {/* Comparative Insights */}
       <ComparativeInsights
