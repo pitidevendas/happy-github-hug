@@ -347,13 +347,20 @@ const RMRView = ({ team = [], previousMonthRevenue = 0, previousMonthGoal = 2000
       {/* RMR Wizard Modal */}
       <AnimatePresence>
         {showWizard && (
-          <RMRWizard
-            team={team}
-            previousMonthRevenue={previousMonthRevenue}
-            previousMonthGoal={previousMonthGoal}
-            lastRMR={lastRMR}
-            onClose={() => setShowWizard(false)}
-          />
+          <motion.div
+            key="rmr-wizard-wrapper"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <RMRWizard
+              team={team}
+              previousMonthRevenue={previousMonthRevenue}
+              previousMonthGoal={previousMonthGoal}
+              lastRMR={lastRMR}
+              onClose={() => setShowWizard(false)}
+            />
+          </motion.div>
         )}
       </AnimatePresence>
     </motion.div>

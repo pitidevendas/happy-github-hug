@@ -187,16 +187,26 @@ const AuthenticatedApp = () => {
       case "pgv":
         return <PGVSemanalView team={displayData.team} monthlyGoal={displayData.kpis?.annualGoal ? displayData.kpis.annualGoal / 12 : 200000} />;
       case "rmr":
-        // Buscar dados do mês anterior do ano atual
+        // Buscar dados do mês anterior corretamente
         const currentMonth = new Date().getMonth(); // 0-indexed (Janeiro = 0)
+        const currentYear = new Date().getFullYear();
         const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
         
         let previousMonthData;
         if (currentMonth === 0) {
-          // Se estamos em Janeiro, pegar Dezembro do ano anterior
-          previousMonthData = displayData.historicalData.find(d => d.month === "Dez");
+          // Janeiro: buscar Dezembro do último ano disponível
+          // Primeiro tenta em currentYearData (que representa o último ano com dados)
+          previousMonthData = displayData.currentYearData.find(d => d.month === "Dez" && d.revenue > 0);
+          
+          // Se não encontrou ou revenue=0, buscar o Dezembro mais recente no histórico
+          if (!previousMonthData || previousMonthData.revenue === 0) {
+            const dezembroHistorico = displayData.historicalData
+              .filter(d => d.month === "Dez")
+              .sort((a, b) => (b.year || 0) - (a.year || 0));
+            previousMonthData = dezembroHistorico[0];
+          }
         } else {
-          // Pegar o mês anterior no ano atual
+          // Outros meses: buscar o mês anterior no currentYearData
           const prevMonthName = monthNames[currentMonth - 1];
           previousMonthData = displayData.currentYearData.find(d => d.month === prevMonthName);
         }
