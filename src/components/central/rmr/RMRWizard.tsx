@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ArrowRight, Check, Target, Star, Sparkles, Calendar, FileText, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -74,6 +74,23 @@ const RMRWizard = ({ team, previousMonthRevenue, previousMonthGoal, lastRMR, onC
     notes: "",
   });
   const [newStrategy, setNewStrategy] = useState("");
+
+  // Sincronizar dados quando props mudarem (dados carregados do backend)
+  useEffect(() => {
+    setWizardData(prev => ({
+      ...prev,
+      previousRevenue: previousMonthRevenue,
+      previousGoal: previousMonthGoal,
+      // Só preenche automaticamente se estiver vazio
+      motivationalTheme: prev.motivationalTheme || lastRMR?.motivational_theme || "",
+      monthlyGoal: prev.monthlyGoal === 0 || prev.monthlyGoal === previousMonthGoal 
+        ? (lastRMR?.monthly_goal ? Math.round(lastRMR.monthly_goal * 1.1) : previousMonthGoal)
+        : prev.monthlyGoal,
+      strategies: prev.strategies.length === 0 && lastRMR?.strategies 
+        ? lastRMR.strategies 
+        : prev.strategies,
+    }));
+  }, [previousMonthRevenue, previousMonthGoal, lastRMR]);
 
   const { createRMR, isCreating } = useRMR();
   const activeTeam = team.filter(s => s.active && !s.isPlaceholder);
