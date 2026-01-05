@@ -6,7 +6,7 @@ import InfoTooltip from "./InfoTooltip";
 import SeasonalityIndexTable from "./seasonality/SeasonalityIndexTable";
 import RealVsPatternCard from "./seasonality/RealVsPatternCard";
 import StrategicRecommendations from "./seasonality/StrategicRecommendations";
-import SeasonalGoalDistribution from "./seasonality/SeasonalGoalDistribution";
+
 import PatternEvolution from "./seasonality/PatternEvolution";
 import VarianceAnalysis from "./seasonality/VarianceAnalysis";
 import {
@@ -420,11 +420,6 @@ const SeasonalityView = ({ historicalData, currentYearData, selectedMonth, annua
         currentMonthIndex={currentMonthIndex} 
       />
 
-      {/* Seasonal Goal Distribution */}
-      <SeasonalGoalDistribution 
-        seasonalityData={seasonalityData} 
-        annualGoal={annualGoal} 
-      />
 
       {/* Pattern Evolution */}
       <PatternEvolution 
