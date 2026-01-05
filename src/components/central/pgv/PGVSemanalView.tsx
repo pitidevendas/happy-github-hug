@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ClipboardList, Target, TrendingUp, Users, ChevronLeft, ChevronRight, Award } from "lucide-react";
+import { ClipboardList, Target, Users, Award, Edit2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import InfoTooltip from "../InfoTooltip";
+import PGVEditableCell from "./PGVEditableCell";
 import { Salesperson } from "@/types";
+import { usePGV } from "@/hooks/usePGV";
 
 interface PGVSemanalViewProps {
   team: Salesperson[];
@@ -17,9 +18,15 @@ interface PGVSemanalViewProps {
 
 const PGVSemanalView = ({ team, monthlyGoal = 200000 }: PGVSemanalViewProps) => {
   const [currentWeek, setCurrentWeek] = useState(1);
-  const currentMonth = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  const currentDate = new Date();
+  const currentMonth = currentDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   
-  // Calcular semanas do mês atual
+  const { entries, isUpdating, upsertEntry } = usePGV(
+    currentDate.getMonth() + 1,
+    currentDate.getFullYear()
+  );
+
+  // Calculate weeks in month
   const weeksInMonth = 4;
   const weeklyGoal = monthlyGoal / weeksInMonth;
   const dailyWorkingDays = 5;
@@ -33,28 +40,39 @@ const PGVSemanalView = ({ team, monthlyGoal = 200000 }: PGVSemanalViewProps) => 
     }).format(value);
   };
 
-  // Preparar dados por vendedor com dados das semanas
-  const teamData = team.filter(s => s.active && !s.isPlaceholder).map(salesperson => {
+  // Prepare team data with week data
+  const activeTeam = team.filter(s => s.active && !s.isPlaceholder);
+  
+  const teamData = activeTeam.map(salesperson => {
+    // Check if there's a database entry for this salesperson
+    const dbEntry = entries.find(e => 
+      e.salesperson_id === salesperson.id
+    );
+
+    // Use database entry if available, otherwise calculate from team data
     const weekData = salesperson.weeks.find(w => w.week === currentWeek) || {
       week: currentWeek,
       revenue: 0,
-      goal: weeklyGoal / team.length
+      goal: weeklyGoal / activeTeam.length
     };
     
     const accumulatedRevenue = salesperson.weeks
       .filter(w => w.week <= currentWeek)
       .reduce((sum, w) => sum + w.revenue, 0);
     
-    const dailyGoal = weekData.goal / dailyWorkingDays;
-    const percentAchieved = weekData.goal > 0 ? (weekData.revenue / weekData.goal) * 100 : 0;
+    const salespersonWeeklyGoal = dbEntry?.weekly_goal || weekData.goal;
+    const dailyGoal = salespersonWeeklyGoal / dailyWorkingDays;
+    const weeklyRealized = dbEntry?.weekly_realized ?? weekData.revenue;
+    const percentAchieved = salespersonWeeklyGoal > 0 ? (weeklyRealized / salespersonWeeklyGoal) * 100 : 0;
     
     return {
       ...salesperson,
-      weeklyGoal: weekData.goal,
-      weeklyRealized: weekData.revenue,
+      weeklyGoal: salespersonWeeklyGoal,
+      weeklyRealized,
       dailyGoal,
       percentAchieved,
-      accumulatedRevenue,
+      accumulatedRevenue: dbEntry?.monthly_accumulated || accumulatedRevenue,
+      dbEntryId: dbEntry?.id,
     };
   }).sort((a, b) => b.percentAchieved - a.percentAchieved);
 
@@ -72,6 +90,13 @@ const PGVSemanalView = ({ team, monthlyGoal = 200000 }: PGVSemanalViewProps) => 
     if (percent >= 100) return "bg-emerald-500/10 border-emerald-500/20";
     if (percent >= 80) return "bg-amber-500/10 border-amber-500/20";
     return "bg-destructive/10 border-destructive/20";
+  };
+
+  const handleUpdateRealized = (salesperson: typeof teamData[0], newValue: number) => {
+    // For now, this updates local state. The upsertEntry would need a pgv_week_id
+    // which would be created when syncing with RMR
+    console.log(`Updating ${salesperson.name}: ${newValue}`);
+    // TODO: Integrate with database when PGV weeks are created from RMR
   };
 
   return (
@@ -93,10 +118,16 @@ const PGVSemanalView = ({ team, monthlyGoal = 200000 }: PGVSemanalViewProps) => 
             {currentMonth}
           </p>
         </div>
-        <InfoTooltip 
-          text="O PGV é o painel onde a equipe acompanha diariamente o progresso das vendas. Preencha os resultados de cada vendedor para visualizar o ranking e identificar quem precisa de apoio."
-          maxWidth={320}
-        />
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="gap-1">
+            <Edit2 className="h-3 w-3" />
+            Clique nos valores para editar
+          </Badge>
+          <InfoTooltip 
+            text="O PGV é o painel onde a equipe acompanha diariamente o progresso das vendas. Clique nos valores de 'Realizado' para editar diretamente."
+            maxWidth={320}
+          />
+        </div>
       </div>
 
       {/* Resumo do Mês */}
@@ -279,11 +310,15 @@ const PGVSemanalView = ({ team, monthlyGoal = 200000 }: PGVSemanalViewProps) => 
                     {formatCurrency(salesperson.weeklyGoal)}
                   </div>
 
-                  {/* Realizado */}
-                  <div className="col-span-2 text-right">
-                    <span className={cn("font-medium", getPercentColor(salesperson.percentAchieved))}>
-                      {formatCurrency(salesperson.weeklyRealized)}
-                    </span>
+                  {/* Realizado - Editável */}
+                  <div className="col-span-2 flex justify-end">
+                    <PGVEditableCell
+                      value={salesperson.weeklyRealized}
+                      onSave={(value) => handleUpdateRealized(salesperson, value)}
+                      isLoading={isUpdating}
+                      formatValue={formatCurrency}
+                      className={getPercentColor(salesperson.percentAchieved)}
+                    />
                   </div>
 
                   {/* % Atingido */}
