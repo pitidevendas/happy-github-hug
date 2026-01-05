@@ -303,8 +303,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data }) => {
         annualProgress={annualAccumulated.progressPercent}
       />
 
-      {/* Main KPIs Grid - 5 Columns */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      {/* Main KPIs Grid - 4 Columns Centered */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-5xl mx-auto">
         {/* Meta Prevista do Mês */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
