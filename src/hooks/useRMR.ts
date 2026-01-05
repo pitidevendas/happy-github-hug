@@ -128,10 +128,19 @@ export const useRMR = () => {
     },
   });
 
-  // Get next RMR (first day of next month)
+  // Get next RMR (first business day of next month - skips weekends)
   const getNextRMRDate = () => {
     const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    let firstDay = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    
+    const dayOfWeek = firstDay.getDay();
+    if (dayOfWeek === 6) { // Sábado -> Segunda
+      firstDay.setDate(firstDay.getDate() + 2);
+    } else if (dayOfWeek === 0) { // Domingo -> Segunda
+      firstDay.setDate(firstDay.getDate() + 1);
+    }
+    
+    return firstDay;
   };
 
   // Get RMR for a specific month
