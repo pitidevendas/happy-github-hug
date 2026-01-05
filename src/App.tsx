@@ -187,7 +187,14 @@ const AuthenticatedApp = () => {
       case "pgv":
         return <PGVSemanalView team={displayData.team} monthlyGoal={displayData.kpis?.annualGoal ? displayData.kpis.annualGoal / 12 : 200000} />;
       case "rmr":
-        return <RMRView team={displayData.team} />;
+        const lastMonthData = displayData.historicalData[displayData.historicalData.length - 1];
+        return (
+          <RMRView 
+            team={displayData.team} 
+            previousMonthRevenue={lastMonthData?.revenue || 0}
+            previousMonthGoal={lastMonthData?.goal || 200000}
+          />
+        );
       case "fivi":
         return <FIVIView team={displayData.team} />;
       case "seasonality":

@@ -1,41 +1,26 @@
-import { motion } from "framer-motion";
-import { Trophy, Calendar, Star, Target, ArrowRight, Clock, CheckCircle } from "lucide-react";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Trophy, Calendar, Star, Target, ArrowRight, Clock, CheckCircle, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import InfoTooltip from "../InfoTooltip";
+import { Salesperson } from "@/types";
+import { useRMR } from "@/hooks/useRMR";
+import RMRWizard from "./RMRWizard";
 
 interface RMRViewProps {
-  team?: any[];
+  team: Salesperson[];
+  previousMonthRevenue?: number;
+  previousMonthGoal?: number;
 }
 
-const RMRView = ({ team = [] }: RMRViewProps) => {
-  // Mock data para a próxima RMR
-  const nextRMR = {
-    date: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1),
-    status: 'pending' as const,
-  };
+const RMRView = ({ team = [], previousMonthRevenue = 0, previousMonthGoal = 200000 }: RMRViewProps) => {
+  const [showWizard, setShowWizard] = useState(false);
+  const { meetings, isLoading, getNextRMRDate } = useRMR();
 
-  const previousRMRs = [
-    {
-      id: '1',
-      month: 'Dezembro',
-      year: 2024,
-      status: 'completed',
-      highlightedEmployee: 'Carlos Silva',
-      revenue: 285000,
-      goal: 250000,
-    },
-    {
-      id: '2',
-      month: 'Novembro',
-      year: 2024,
-      status: 'completed',
-      highlightedEmployee: 'Ana Costa',
-      revenue: 245000,
-      goal: 240000,
-    },
-  ];
+  const nextRMRDate = getNextRMRDate();
+  const daysUntilRMR = Math.ceil((nextRMRDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('pt-BR', {
@@ -45,7 +30,37 @@ const RMRView = ({ team = [] }: RMRViewProps) => {
     });
   };
 
-  const daysUntilRMR = Math.ceil((nextRMR.date.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      minimumFractionDigits: 0,
+    }).format(value);
+  };
+
+  // Get completed meetings for stats
+  const completedMeetings = meetings.filter(m => m.status === 'completed');
+  const uniqueHighlights = new Set(completedMeetings.map(m => m.highlighted_employee_id).filter(Boolean));
+
+  // Calculate achievement rate
+  const achievementRate = completedMeetings.length > 0
+    ? completedMeetings.filter(m => m.previous_month_revenue >= m.monthly_goal).length / completedMeetings.length * 100
+    : 0;
+
+  // Check preparation status for next RMR
+  const nextMonth = new Date();
+  nextMonth.setMonth(nextMonth.getMonth() + 1);
+  const nextRMR = meetings.find(m => 
+    m.month === nextMonth.getMonth() + 1 && 
+    m.year === nextMonth.getFullYear()
+  );
+
+  const preparationItems = [
+    { label: 'Resultados do Mês', icon: Target, done: previousMonthRevenue > 0 },
+    { label: 'Colaborador Destaque', icon: Star, done: !!nextRMR?.highlighted_employee_id },
+    { label: 'Tema Motivacional', icon: Trophy, done: !!nextRMR?.motivational_theme },
+    { label: 'Metas do Próximo Mês', icon: Calendar, done: !!nextRMR?.monthly_goal },
+  ];
 
   return (
     <motion.div
@@ -94,13 +109,17 @@ const RMRView = ({ team = [] }: RMRViewProps) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-2xl font-bold text-foreground capitalize">
-                  {formatDate(nextRMR.date)}
+                  {formatDate(nextRMRDate)}
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
                   1º dia útil do mês
                 </p>
               </div>
-              <Button className="bg-amber-500 hover:bg-amber-600 text-white gap-2">
+              <Button 
+                className="bg-amber-500 hover:bg-amber-600 text-white gap-2"
+                onClick={() => setShowWizard(true)}
+              >
+                <Plus className="h-4 w-4" />
                 Preparar RMR
                 <ArrowRight className="h-4 w-4" />
               </Button>
@@ -108,12 +127,7 @@ const RMRView = ({ team = [] }: RMRViewProps) => {
 
             {/* Checklist de Preparação */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t border-border">
-              {[
-                { label: 'Resultados do Mês', icon: Target, done: true },
-                { label: 'Colaborador Destaque', icon: Star, done: false },
-                { label: 'Tema Motivacional', icon: Trophy, done: false },
-                { label: 'Metas do Próximo Mês', icon: Calendar, done: false },
-              ].map((item, idx) => (
+              {preparationItems.map((item, idx) => (
                 <div 
                   key={idx}
                   className={`flex items-center gap-3 p-3 rounded-lg ${
@@ -139,7 +153,6 @@ const RMRView = ({ team = [] }: RMRViewProps) => {
 
       {/* Grid de Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Card de Estatísticas */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -153,10 +166,10 @@ const RMRView = ({ team = [] }: RMRViewProps) => {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-foreground">
-                12
+                {completedMeetings.length}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                nos últimos 12 meses
+                {isLoading ? 'carregando...' : 'registradas no sistema'}
               </p>
             </CardContent>
           </Card>
@@ -175,7 +188,7 @@ const RMRView = ({ team = [] }: RMRViewProps) => {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-emerald-500">
-                92%
+                {achievementRate.toFixed(0)}%
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 das metas foram atingidas
@@ -192,12 +205,12 @@ const RMRView = ({ team = [] }: RMRViewProps) => {
           <Card className="bg-card border-border h-full">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Destaques do Ano
+                Destaques Únicos
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-amber-500">
-                {team.length > 0 ? team.length : 3}
+                {uniqueHighlights.size}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 colaboradores reconhecidos
@@ -220,46 +233,75 @@ const RMRView = ({ team = [] }: RMRViewProps) => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {previousRMRs.map((rmr, idx) => (
-                <motion.div
-                  key={rmr.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.4 + idx * 0.1 }}
-                  className="flex items-center justify-between p-4 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors cursor-pointer"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="p-2 rounded-lg bg-emerald-500/10">
-                      <CheckCircle className="h-5 w-5 text-emerald-500" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-foreground">
-                        {rmr.month} {rmr.year}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Destaque: {rmr.highlightedEmployee}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium text-foreground">
-                      {new Intl.NumberFormat('pt-BR', {
-                        style: 'currency',
-                        currency: 'BRL',
-                        minimumFractionDigits: 0,
-                      }).format(rmr.revenue)}
-                    </p>
-                    <p className={`text-sm ${rmr.revenue >= rmr.goal ? 'text-emerald-500' : 'text-amber-500'}`}>
-                      {((rmr.revenue / rmr.goal) * 100).toFixed(0)}% da meta
-                    </p>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
+            {isLoading ? (
+              <div className="py-8 text-center text-muted-foreground">
+                Carregando histórico...
+              </div>
+            ) : completedMeetings.length === 0 ? (
+              <div className="py-8 text-center text-muted-foreground">
+                <Trophy className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                <p>Nenhuma RMR registrada ainda</p>
+                <p className="text-sm">Clique em "Preparar RMR" para criar a primeira</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {completedMeetings.slice(0, 5).map((rmr, idx) => {
+                  const monthName = new Date(rmr.year, rmr.month - 1).toLocaleDateString('pt-BR', { month: 'long' });
+                  const percent = rmr.monthly_goal > 0 
+                    ? (rmr.previous_month_revenue / rmr.monthly_goal) * 100 
+                    : 0;
+
+                  return (
+                    <motion.div
+                      key={rmr.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.4 + idx * 0.1 }}
+                      className="flex items-center justify-between p-4 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="p-2 rounded-lg bg-emerald-500/10">
+                          <CheckCircle className="h-5 w-5 text-emerald-500" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-foreground capitalize">
+                            {monthName} {rmr.year}
+                          </p>
+                          {rmr.highlighted_employee_name && (
+                            <p className="text-sm text-muted-foreground">
+                              Destaque: {rmr.highlighted_employee_name}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium text-foreground">
+                          {formatCurrency(rmr.previous_month_revenue)}
+                        </p>
+                        <p className={`text-sm ${percent >= 100 ? 'text-emerald-500' : 'text-amber-500'}`}>
+                          {percent.toFixed(0)}% da meta
+                        </p>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* RMR Wizard Modal */}
+      <AnimatePresence>
+        {showWizard && (
+          <RMRWizard
+            team={team}
+            previousMonthRevenue={previousMonthRevenue}
+            previousMonthGoal={previousMonthGoal}
+            onClose={() => setShowWizard(false)}
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };

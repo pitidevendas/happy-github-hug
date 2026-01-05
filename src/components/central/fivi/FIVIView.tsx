@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { MessageSquare, User, Calendar, Target, TrendingUp, CheckCircle, Clock, ArrowRight, Sparkles } from "lucide-react";
+import { MessageSquare, User, Calendar, Target, CheckCircle, Clock, ArrowRight, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 import InfoTooltip from "../InfoTooltip";
 import { Salesperson } from "@/types";
+import { useFIVI, CreateFIVIInput } from "@/hooks/useFIVI";
 
 interface FIVIViewProps {
   team: Salesperson[];
@@ -26,42 +27,33 @@ const FIVIView = ({ team }: FIVIViewProps) => {
     weeklyCommitment: "",
   });
 
+  const { 
+    sessions, 
+    isLoading, 
+    createFIVI, 
+    isCreating,
+    getLatestSession,
+    getCommitmentRate,
+    getPendingFIVIs,
+  } = useFIVI();
+
   const activeTeam = team.filter(s => s.active && !s.isPlaceholder);
   const currentWeek = Math.ceil(new Date().getDate() / 7);
 
-  // Mock de feedbacks anteriores
-  const previousFeedbacks = [
-    {
-      id: '1',
-      salesperson: 'Carlos Silva',
-      date: '23/12/2024',
-      weekNumber: 4,
-      commitment: 45000,
-      realized: 42000,
-      status: 'completed'
-    },
-    {
-      id: '2',
-      salesperson: 'Ana Costa',
-      date: '23/12/2024',
-      weekNumber: 4,
-      commitment: 38000,
-      realized: 41000,
-      status: 'completed'
-    },
-    {
-      id: '3',
-      salesperson: 'Pedro Santos',
-      date: '16/12/2024',
-      weekNumber: 3,
-      commitment: 35000,
-      realized: 28000,
-      status: 'completed'
-    },
-  ];
-
   const selectedPerson = activeTeam.find(s => s.id === selectedSalesperson);
   const weekData = selectedPerson?.weeks.find(w => w.week === currentWeek);
+  const previousFIVI = selectedPerson ? getLatestSession(selectedPerson.id) : null;
+
+  // Stats
+  const pendingCount = getPendingFIVIs(activeTeam.map(t => t.id), currentWeek).length;
+  const completedThisMonth = sessions.filter(s => {
+    const sessionDate = new Date(s.date);
+    const now = new Date();
+    return sessionDate.getMonth() === now.getMonth() && 
+           sessionDate.getFullYear() === now.getFullYear() &&
+           s.status === 'completed';
+  }).length;
+  const commitmentRate = getCommitmentRate();
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
@@ -103,6 +95,42 @@ const FIVIView = ({ team }: FIVIViewProps) => {
     },
   ];
 
+  const handleSubmit = () => {
+    if (!selectedPerson) return;
+
+    const input: CreateFIVIInput = {
+      salesperson_id: selectedPerson.id,
+      salesperson_name: selectedPerson.name,
+      week_number: currentWeek,
+      actions_executed: formData.actionsExecuted,
+      improvement_ideas: formData.improvementIdeas,
+      failed_actions: formData.failedActions,
+      support_needed: formData.supportNeeded,
+      weekly_commitment: parseFloat(formData.weeklyCommitment) || 0,
+      weekly_goal: weekData?.goal || 0,
+      weekly_realized: weekData?.revenue || 0,
+      previous_commitment: previousFIVI?.weekly_commitment,
+      previous_realized: previousFIVI?.weekly_realized,
+      status: 'completed',
+    };
+
+    createFIVI(input, {
+      onSuccess: () => {
+        setFormData({
+          actionsExecuted: "",
+          improvementIdeas: "",
+          failedActions: "",
+          supportNeeded: "",
+          weeklyCommitment: "",
+        });
+        setSelectedSalesperson("");
+      },
+    });
+  };
+
+  // Get recent sessions for history
+  const recentSessions = sessions.slice(0, 10);
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -143,7 +171,7 @@ const FIVIView = ({ team }: FIVIViewProps) => {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-amber-500">
-                {activeTeam.length}
+                {isLoading ? '...' : pendingCount}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 para esta semana
@@ -165,7 +193,7 @@ const FIVIView = ({ team }: FIVIViewProps) => {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-emerald-500">
-                12
+                {isLoading ? '...' : completedThisMonth}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 de {activeTeam.length * 4} previstas
@@ -187,7 +215,7 @@ const FIVIView = ({ team }: FIVIViewProps) => {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-foreground">
-                78%
+                {commitmentRate.toFixed(0)}%
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 dos compromissos atingidos
@@ -238,37 +266,71 @@ const FIVIView = ({ team }: FIVIViewProps) => {
               </Select>
             </div>
 
-            {/* Dados do PGV (se vendedor selecionado) */}
+            {/* Dados do PGV e FIVI anterior */}
             {selectedPerson && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
-                className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-lg bg-secondary/30"
+                className="space-y-4"
               >
-                <div>
-                  <p className="text-xs text-muted-foreground">Meta da Semana</p>
-                  <p className="text-lg font-bold text-foreground">
-                    {formatCurrency(weekData?.goal || 0)}
-                  </p>
+                {/* Dados atuais */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-lg bg-secondary/30">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Meta da Semana</p>
+                    <p className="text-lg font-bold text-foreground">
+                      {formatCurrency(weekData?.goal || 0)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Realizado</p>
+                    <p className={cn(
+                      "text-lg font-bold",
+                      (weekData?.revenue || 0) >= (weekData?.goal || 0) ? "text-emerald-500" : "text-amber-500"
+                    )}>
+                      {formatCurrency(weekData?.revenue || 0)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">% Atingido</p>
+                    <p className={cn(
+                      "text-lg font-bold",
+                      ((weekData?.revenue || 0) / (weekData?.goal || 1)) * 100 >= 100 ? "text-emerald-500" : "text-amber-500"
+                    )}>
+                      {(((weekData?.revenue || 0) / (weekData?.goal || 1)) * 100).toFixed(0)}%
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Realizado</p>
-                  <p className={cn(
-                    "text-lg font-bold",
-                    (weekData?.revenue || 0) >= (weekData?.goal || 0) ? "text-emerald-500" : "text-amber-500"
-                  )}>
-                    {formatCurrency(weekData?.revenue || 0)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">% Atingido</p>
-                  <p className={cn(
-                    "text-lg font-bold",
-                    ((weekData?.revenue || 0) / (weekData?.goal || 1)) * 100 >= 100 ? "text-emerald-500" : "text-amber-500"
-                  )}>
-                    {(((weekData?.revenue || 0) / (weekData?.goal || 1)) * 100).toFixed(0)}%
-                  </p>
-                </div>
+
+                {/* FIVI anterior */}
+                {previousFIVI && (
+                  <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                    <p className="text-sm font-medium text-amber-500 mb-2">
+                      FIVI Anterior (Semana {previousFIVI.week_number})
+                    </p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Compromisso</p>
+                        <p className="font-medium">{formatCurrency(previousFIVI.weekly_commitment)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Entregue</p>
+                        <p className={cn(
+                          "font-medium",
+                          previousFIVI.weekly_realized >= previousFIVI.weekly_commitment 
+                            ? "text-emerald-500" 
+                            : "text-destructive"
+                        )}>
+                          {formatCurrency(previousFIVI.weekly_realized)}
+                          {previousFIVI.weekly_realized >= previousFIVI.weekly_commitment ? (
+                            <CheckCircle className="inline h-4 w-4 ml-1" />
+                          ) : (
+                            <Target className="inline h-4 w-4 ml-1" />
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </motion.div>
             )}
 
@@ -323,8 +385,12 @@ const FIVIView = ({ team }: FIVIViewProps) => {
                       className="pl-10"
                     />
                   </div>
-                  <Button className="bg-violet-500 hover:bg-violet-600 text-white gap-2">
-                    Registrar FIVI
+                  <Button 
+                    className="bg-violet-500 hover:bg-violet-600 text-white gap-2"
+                    onClick={handleSubmit}
+                    disabled={!selectedPerson || isCreating}
+                  >
+                    {isCreating ? 'Salvando...' : 'Registrar FIVI'}
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </div>
@@ -348,51 +414,63 @@ const FIVIView = ({ team }: FIVIViewProps) => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {previousFeedbacks.map((feedback, idx) => (
-                <motion.div
-                  key={feedback.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.85 + idx * 0.05 }}
-                  className="flex items-center justify-between p-4 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors cursor-pointer"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="p-2 rounded-lg bg-violet-500/10">
-                      <User className="h-5 w-5 text-violet-500" />
+            {isLoading ? (
+              <div className="py-8 text-center text-muted-foreground">
+                Carregando histórico...
+              </div>
+            ) : recentSessions.length === 0 ? (
+              <div className="py-8 text-center text-muted-foreground">
+                <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                <p>Nenhuma FIVI registrada ainda</p>
+                <p className="text-sm">Selecione um vendedor acima para registrar a primeira</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {recentSessions.map((session, idx) => (
+                  <motion.div
+                    key={session.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.85 + idx * 0.05 }}
+                    className="flex items-center justify-between p-4 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="p-2 rounded-lg bg-violet-500/10">
+                        <User className="h-5 w-5 text-violet-500" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-foreground">
+                          {session.salesperson_name}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Semana {session.week_number} • {new Date(session.date).toLocaleDateString('pt-BR')}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-foreground">
-                        {feedback.salesperson}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Semana {feedback.weekNumber} • {feedback.date}
-                      </p>
+                    <div className="text-right">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">Compromisso:</span>
+                        <span className="font-medium text-foreground">{formatCurrency(session.weekly_commitment)}</span>
+                      </div>
+                      <div className="flex items-center gap-2 justify-end">
+                        <span className="text-sm text-muted-foreground">Entregou:</span>
+                        <span className={cn(
+                          "font-medium",
+                          session.weekly_realized >= session.weekly_commitment ? "text-emerald-500" : "text-amber-500"
+                        )}>
+                          {formatCurrency(session.weekly_realized)}
+                        </span>
+                        {session.weekly_realized >= session.weekly_commitment ? (
+                          <CheckCircle className="h-4 w-4 text-emerald-500" />
+                        ) : (
+                          <Target className="h-4 w-4 text-amber-500" />
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">Compromisso:</span>
-                      <span className="font-medium text-foreground">{formatCurrency(feedback.commitment)}</span>
-                    </div>
-                    <div className="flex items-center gap-2 justify-end">
-                      <span className="text-sm text-muted-foreground">Entregou:</span>
-                      <span className={cn(
-                        "font-medium",
-                        feedback.realized >= feedback.commitment ? "text-emerald-500" : "text-amber-500"
-                      )}>
-                        {formatCurrency(feedback.realized)}
-                      </span>
-                      {feedback.realized >= feedback.commitment ? (
-                        <CheckCircle className="h-4 w-4 text-emerald-500" />
-                      ) : (
-                        <Target className="h-4 w-4 text-amber-500" />
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </motion.div>

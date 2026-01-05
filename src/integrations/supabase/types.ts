@@ -150,6 +150,72 @@ export type Database = {
           },
         ]
       }
+      fivi_sessions: {
+        Row: {
+          actions_executed: string | null
+          created_at: string
+          date: string
+          failed_actions: string | null
+          id: string
+          improvement_ideas: string | null
+          notes: string | null
+          previous_commitment: number | null
+          previous_realized: number | null
+          salesperson_id: string
+          salesperson_name: string
+          status: string
+          support_needed: string | null
+          updated_at: string
+          user_id: string
+          week_number: number
+          weekly_commitment: number
+          weekly_goal: number
+          weekly_realized: number
+        }
+        Insert: {
+          actions_executed?: string | null
+          created_at?: string
+          date?: string
+          failed_actions?: string | null
+          id?: string
+          improvement_ideas?: string | null
+          notes?: string | null
+          previous_commitment?: number | null
+          previous_realized?: number | null
+          salesperson_id: string
+          salesperson_name: string
+          status?: string
+          support_needed?: string | null
+          updated_at?: string
+          user_id: string
+          week_number: number
+          weekly_commitment?: number
+          weekly_goal?: number
+          weekly_realized?: number
+        }
+        Update: {
+          actions_executed?: string | null
+          created_at?: string
+          date?: string
+          failed_actions?: string | null
+          id?: string
+          improvement_ideas?: string | null
+          notes?: string | null
+          previous_commitment?: number | null
+          previous_realized?: number | null
+          salesperson_id?: string
+          salesperson_name?: string
+          status?: string
+          support_needed?: string | null
+          updated_at?: string
+          user_id?: string
+          week_number?: number
+          weekly_commitment?: number
+          weekly_goal?: number
+          weekly_realized?: number
+        }
+        Relationships: []
+      }
       invites: {
         Row: {
           created_at: string
@@ -195,6 +261,98 @@ export type Database = {
           },
         ]
       }
+      pgv_entries: {
+        Row: {
+          created_at: string
+          daily_goal: number
+          id: string
+          monthly_accumulated: number
+          pgv_week_id: string
+          salesperson_id: string
+          salesperson_name: string
+          updated_at: string
+          user_id: string
+          weekly_goal: number
+          weekly_realized: number
+        }
+        Insert: {
+          created_at?: string
+          daily_goal?: number
+          id?: string
+          monthly_accumulated?: number
+          pgv_week_id: string
+          salesperson_id: string
+          salesperson_name: string
+          updated_at?: string
+          user_id: string
+          weekly_goal?: number
+          weekly_realized?: number
+        }
+        Update: {
+          created_at?: string
+          daily_goal?: number
+          id?: string
+          monthly_accumulated?: number
+          pgv_week_id?: string
+          salesperson_id?: string
+          salesperson_name?: string
+          updated_at?: string
+          user_id?: string
+          weekly_goal?: number
+          weekly_realized?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pgv_entries_pgv_week_id_fkey"
+            columns: ["pgv_week_id"]
+            isOneToOne: false
+            referencedRelation: "pgv_weeks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pgv_weeks: {
+        Row: {
+          created_at: string
+          end_date: string
+          id: string
+          month: number
+          monthly_goal: number
+          start_date: string
+          updated_at: string
+          user_id: string
+          week_number: number
+          working_days: number
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          end_date: string
+          id?: string
+          month: number
+          monthly_goal?: number
+          start_date: string
+          updated_at?: string
+          user_id: string
+          week_number: number
+          working_days?: number
+          year: number
+        }
+        Update: {
+          created_at?: string
+          end_date?: string
+          id?: string
+          month?: number
+          monthly_goal?: number
+          start_date?: string
+          updated_at?: string
+          user_id?: string
+          week_number?: number
+          working_days?: number
+          year?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           company_name: string | null
@@ -222,6 +380,63 @@ export type Database = {
           role?: Database["public"]["Enums"]["user_role"]
           segment?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      rmr_meetings: {
+        Row: {
+          created_at: string
+          date: string
+          highlight_reason: string | null
+          highlighted_employee_id: string | null
+          highlighted_employee_name: string | null
+          id: string
+          month: number
+          monthly_goal: number
+          motivational_theme: string | null
+          notes: string | null
+          previous_month_revenue: number
+          status: string
+          strategies: Json | null
+          updated_at: string
+          user_id: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          highlight_reason?: string | null
+          highlighted_employee_id?: string | null
+          highlighted_employee_name?: string | null
+          id?: string
+          month: number
+          monthly_goal?: number
+          motivational_theme?: string | null
+          notes?: string | null
+          previous_month_revenue?: number
+          status?: string
+          strategies?: Json | null
+          updated_at?: string
+          user_id: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          highlight_reason?: string | null
+          highlighted_employee_id?: string | null
+          highlighted_employee_name?: string | null
+          id?: string
+          month?: number
+          monthly_goal?: number
+          motivational_theme?: string | null
+          notes?: string | null
+          previous_month_revenue?: number
+          status?: string
+          strategies?: Json | null
+          updated_at?: string
+          user_id?: string
+          year?: number
         }
         Relationships: []
       }
