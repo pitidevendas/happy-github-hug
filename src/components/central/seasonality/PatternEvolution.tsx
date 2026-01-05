@@ -61,8 +61,9 @@ const PatternEvolution = ({ historicalData, monthOrder }: PatternEvolutionProps)
     .filter(m => Math.abs(m.change) > 5)
     .sort((a, b) => Math.abs(b.change) - Math.abs(a.change));
 
-  const formatCompact = (value: number) => {
-    return `${value.toFixed(2)}x`;
+  // Format as percentage relative to average (100% = average)
+  const formatAsPercent = (value: number) => {
+    return `${Math.round(value * 100)}%`;
   };
 
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -70,12 +71,23 @@ const PatternEvolution = ({ historicalData, monthOrder }: PatternEvolutionProps)
       return (
         <div className="bg-card/95 backdrop-blur-lg border border-border rounded-xl p-3 shadow-xl">
           <p className="font-bold text-foreground mb-2">{label}</p>
-          {payload.map((entry: any, index: number) => (
-            <div key={index} className="flex justify-between gap-4 text-sm">
-              <span style={{ color: entry.color }}>{entry.name}:</span>
-              <span className="font-semibold">{entry.value.toFixed(2)}x</span>
-            </div>
-          ))}
+          {payload.map((entry: any, index: number) => {
+            const percentValue = Math.round(entry.value * 100);
+            const diffFromAvg = percentValue - 100;
+            return (
+              <div key={index} className="flex flex-col gap-0.5 text-sm mb-1">
+                <div className="flex justify-between gap-4">
+                  <span style={{ color: entry.color }}>{entry.name}:</span>
+                  <span className="font-semibold">{percentValue}%</span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {diffFromAvg === 0 ? 'Exatamente na média' : 
+                   diffFromAvg > 0 ? `${diffFromAvg}% acima da média` : 
+                   `${Math.abs(diffFromAvg)}% abaixo da média`}
+                </span>
+              </div>
+            );
+          })}
         </div>
       );
     }
@@ -126,10 +138,35 @@ const PatternEvolution = ({ historicalData, monthOrder }: PatternEvolutionProps)
             Comparação: {earlyYears.join(', ')} vs {recentYears.join(', ')}
           </p>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {/* Explanation section */}
+          <div className="bg-muted/30 rounded-lg p-4 border border-border/50">
+            <h4 className="text-sm font-medium text-foreground mb-2 flex items-center gap-2">
+              📊 O que é o Índice de Sazonalidade?
+              <InfoTooltip 
+                text="O índice mostra quanto cada mês representa em relação à média anual. Exemplo: 120% significa que o mês fatura 20% acima da média, enquanto 80% indica 20% abaixo."
+                maxWidth={300}
+              />
+            </h4>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              O gráfico mostra o <span className="font-medium text-foreground">índice percentual</span> de cada mês, 
+              onde <span className="text-primary font-medium">100% = média anual</span>. 
+              Valores acima de 100% indicam meses mais fortes; abaixo, meses mais fracos.
+            </p>
+            <div className="flex flex-wrap gap-4 mt-3 text-xs">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-0.5 border-dashed border-t-2 border-muted-foreground"></div>
+                <span className="text-muted-foreground">Padrão Antigo</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-0.5 bg-primary"></div>
+                <span className="text-muted-foreground">Padrão Recente</span>
+              </div>
+            </div>
+          </div>
           <div className="h-[250px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={comparisonData} margin={{ top: 10, right: 30, left: 0, bottom: 10 }}>
+              <LineChart data={comparisonData} margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                 <XAxis 
                   dataKey="month" 
@@ -140,8 +177,10 @@ const PatternEvolution = ({ historicalData, monthOrder }: PatternEvolutionProps)
                 <YAxis
                   stroke="hsl(var(--muted-foreground))"
                   fontSize={10}
-                  tickFormatter={formatCompact}
+                  tickFormatter={formatAsPercent}
                   tickLine={false}
+                  domain={[0.4, 1.8]}
+                  ticks={[0.6, 0.8, 1.0, 1.2, 1.4, 1.6]}
                 />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend />
@@ -167,8 +206,14 @@ const PatternEvolution = ({ historicalData, monthOrder }: PatternEvolutionProps)
           </div>
 
           {monthChanges.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-border">
-              <p className="text-sm font-medium text-foreground mb-3">Mudanças significativas:</p>
+            <div className="pt-4 border-t border-border">
+              <p className="text-sm font-medium text-foreground mb-3 flex items-center gap-2">
+                Mudanças significativas no padrão
+                <InfoTooltip 
+                  text="Meses onde o peso sazonal mudou mais de 5% entre os períodos antigo e recente. Isso indica mudanças no comportamento do mercado ou do seu negócio."
+                  maxWidth={280}
+                />
+              </p>
               <div className="flex flex-wrap gap-2">
                 {monthChanges.slice(0, 4).map(change => (
                   <div 
