@@ -11,12 +11,13 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { Salesperson } from "@/types";
-import { useRMR, CreateRMRInput } from "@/hooks/useRMR";
+import { useRMR, CreateRMRInput, RMRMeeting } from "@/hooks/useRMR";
 
 interface RMRWizardProps {
   team: Salesperson[];
   previousMonthRevenue: number;
   previousMonthGoal: number;
+  lastRMR?: RMRMeeting | null;
   onClose: () => void;
 }
 
@@ -53,7 +54,7 @@ const SUGGESTED_THEMES = [
   "Resiliência: transformar desafios em oportunidades",
 ];
 
-const RMRWizard = ({ team, previousMonthRevenue, previousMonthGoal, onClose }: RMRWizardProps) => {
+const RMRWizard = ({ team, previousMonthRevenue, previousMonthGoal, lastRMR, onClose }: RMRWizardProps) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [wizardData, setWizardData] = useState<WizardData>({
     previousRevenue: previousMonthRevenue,

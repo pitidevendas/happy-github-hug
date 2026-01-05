@@ -17,7 +17,9 @@ interface RMRViewProps {
 
 const RMRView = ({ team = [], previousMonthRevenue = 0, previousMonthGoal = 200000 }: RMRViewProps) => {
   const [showWizard, setShowWizard] = useState(false);
-  const { meetings, isLoading, getNextRMRDate } = useRMR();
+  const { meetings, isLoading, getNextRMRDate, getLatestCompletedRMR } = useRMR();
+  
+  const lastRMR = getLatestCompletedRMR();
 
   const nextRMRDate = getNextRMRDate();
   const daysUntilRMR = Math.ceil((nextRMRDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
@@ -298,6 +300,7 @@ const RMRView = ({ team = [], previousMonthRevenue = 0, previousMonthGoal = 2000
             team={team}
             previousMonthRevenue={previousMonthRevenue}
             previousMonthGoal={previousMonthGoal}
+            lastRMR={lastRMR}
             onClose={() => setShowWizard(false)}
           />
         )}
