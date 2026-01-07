@@ -197,7 +197,7 @@ const ChatAssistant = ({ data }: ChatAssistantProps) => {
                 </div>
                 <div>
                   <h3 className="font-bold text-foreground tracking-tight">IRIS</h3>
-                  <p className="text-xs text-muted-foreground">Inteligência Comercial</p>
+                  <p className="text-[10px] text-muted-foreground leading-tight">Inteligência de Resultados e Insights Estratégicos</p>
                 </div>
               </div>
               <Button
