@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
-import { User, DollarSign, Clock, AlertTriangle, Calendar } from 'lucide-react';
+import { User, DollarSign, Clock, AlertTriangle, Calendar, GripVertical } from 'lucide-react';
+import { useDraggable } from '@dnd-kit/core';
 import { Lead } from '@/types/leads';
 import { Badge } from '@/components/ui/badge';
 
@@ -7,9 +8,15 @@ interface LeadCardProps {
   lead: Lead;
   onClick: () => void;
   index: number;
+  isDragging?: boolean;
+  isOverlay?: boolean;
 }
 
-const LeadCard = ({ lead, onClick, index }: LeadCardProps) => {
+const LeadCard = ({ lead, onClick, index, isDragging = false, isOverlay = false }: LeadCardProps) => {
+  const { attributes, listeners, setNodeRef, transform } = useDraggable({
+    id: lead.id,
+  });
+
   const today = new Date().toISOString().split('T')[0];
   const isToday = lead.next_contact_date === today;
   const isOverdue = lead.next_contact_date && lead.next_contact_date < today;
@@ -26,77 +33,96 @@ const LeadCard = ({ lead, onClick, index }: LeadCardProps) => {
     return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
   };
 
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+  } : undefined;
+
   return (
     <motion.div
+      ref={setNodeRef}
+      style={style}
       initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
+      animate={{ opacity: isDragging ? 0.5 : 1, scale: 1 }}
       transition={{ delay: index * 0.05, duration: 0.2 }}
-      whileHover={{ scale: 1.02, y: -2 }}
-      onClick={onClick}
+      whileHover={!isDragging ? { scale: 1.02, y: -2 } : undefined}
       className={`
-        bg-card rounded-lg p-3 border cursor-pointer transition-all
-        hover:shadow-md hover:border-primary/30
+        bg-card rounded-lg p-3 border transition-all relative group
+        ${isDragging ? 'opacity-50 shadow-lg ring-2 ring-primary/50' : 'hover:shadow-md hover:border-primary/30'}
+        ${isOverlay ? 'shadow-2xl cursor-grabbing' : 'cursor-grab'}
         ${isOverdue ? 'border-red-500/50 bg-red-500/5' : 
           isToday ? 'border-amber-500/50 bg-amber-500/5' : 
           'border-border'}
       `}
     >
-      {/* Badges de urgência */}
-      {(isToday || isOverdue) && (
-        <div className="mb-2">
-          {isOverdue ? (
-            <Badge variant="destructive" className="text-[10px] gap-1">
-              <AlertTriangle className="h-3 w-3" />
-              ATRASADO
-            </Badge>
-          ) : (
-            <Badge className="bg-amber-500 text-[10px] gap-1">
-              <Clock className="h-3 w-3" />
-              HOJE
-            </Badge>
-          )}
-        </div>
-      )}
+      {/* Drag Handle */}
+      <div 
+        {...attributes} 
+        {...listeners}
+        className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-muted transition-opacity cursor-grab active:cursor-grabbing"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <GripVertical className="h-4 w-4 text-muted-foreground" />
+      </div>
 
-      {/* Nome do Cliente */}
-      <h4 className="font-medium text-sm text-foreground truncate mb-2">
-        {lead.client_name}
-      </h4>
+      {/* Área clicável para abrir detalhes */}
+      <div onClick={onClick} className="cursor-pointer">
+        {/* Badges de urgência */}
+        {(isToday || isOverdue) && (
+          <div className="mb-2">
+            {isOverdue ? (
+              <Badge variant="destructive" className="text-[10px] gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                ATRASADO
+              </Badge>
+            ) : (
+              <Badge className="bg-amber-500 text-[10px] gap-1">
+                <Clock className="h-3 w-3" />
+                HOJE
+              </Badge>
+            )}
+          </div>
+        )}
 
-      {/* Valor Estimado */}
-      {lead.estimated_value && lead.estimated_value > 0 && (
-        <div className="flex items-center gap-1.5 text-emerald-500 mb-2">
-          <DollarSign className="h-3.5 w-3.5" />
-          <span className="text-sm font-semibold">
-            {formatCurrency(lead.estimated_value)}
-          </span>
-        </div>
-      )}
+        {/* Nome do Cliente */}
+        <h4 className="font-medium text-sm text-foreground truncate mb-2 pr-6">
+          {lead.client_name}
+        </h4>
 
-      {/* Vendedor */}
-      {lead.salesperson_name && (
-        <div className="flex items-center gap-1.5 text-muted-foreground mb-2">
-          <User className="h-3 w-3" />
-          <span className="text-xs truncate">{lead.salesperson_name}</span>
-        </div>
-      )}
+        {/* Valor Estimado */}
+        {lead.estimated_value && lead.estimated_value > 0 && (
+          <div className="flex items-center gap-1.5 text-emerald-500 mb-2">
+            <DollarSign className="h-3.5 w-3.5" />
+            <span className="text-sm font-semibold">
+              {formatCurrency(lead.estimated_value)}
+            </span>
+          </div>
+        )}
 
-      {/* Próximo Contato */}
-      {lead.next_contact_date && !isToday && !isOverdue && (
-        <div className="flex items-center gap-1.5 text-muted-foreground">
-          <Calendar className="h-3 w-3" />
-          <span className="text-xs">{formatDate(lead.next_contact_date)}</span>
-        </div>
-      )}
+        {/* Vendedor */}
+        {lead.salesperson_name && (
+          <div className="flex items-center gap-1.5 text-muted-foreground mb-2">
+            <User className="h-3 w-3" />
+            <span className="text-xs truncate">{lead.salesperson_name}</span>
+          </div>
+        )}
 
-      {/* Origem */}
-      {lead.lead_source && (
-        <div className="mt-2 pt-2 border-t border-border">
-          <span className="text-[10px] text-muted-foreground uppercase">
-            {lead.lead_source.replace('_', ' ')}
-          </span>
-        </div>
-      )}
+        {/* Próximo Contato */}
+        {lead.next_contact_date && !isToday && !isOverdue && (
+          <div className="flex items-center gap-1.5 text-muted-foreground">
+            <Calendar className="h-3 w-3" />
+            <span className="text-xs">{formatDate(lead.next_contact_date)}</span>
+          </div>
+        )}
+
+        {/* Origem */}
+        {lead.lead_source && (
+          <div className="mt-2 pt-2 border-t border-border">
+            <span className="text-[10px] text-muted-foreground uppercase">
+              {lead.lead_source.replace('_', ' ')}
+            </span>
+          </div>
+        )}
+      </div>
     </motion.div>
   );
 };
