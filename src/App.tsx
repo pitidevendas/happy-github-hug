@@ -17,6 +17,7 @@ import RMRView from "@/components/central/rmr/RMRView";
 import PGVSemanalView from "@/components/central/pgv/PGVSemanalView";
 import FIVIView from "@/components/central/fivi/FIVIView";
 import PipelineView from "@/components/central/pipeline/PipelineView";
+import ExecutiveSummaryView from "@/components/central/ExecutiveSummaryView";
 import Sidebar from "@/components/central/Sidebar";
 import MobileHeader from "@/components/central/MobileHeader";
 import ChatAssistant from "@/components/central/ChatAssistant";
@@ -267,12 +268,7 @@ const AuthenticatedApp = () => {
       case "settings":
         return <SettingsView data={displayData} />;
       case "ai-summary":
-        return (
-          <div className="p-8">
-            <h2 className="text-2xl font-bold text-foreground mb-4">Sumário Executivo</h2>
-            <p className="text-muted-foreground">Em desenvolvimento...</p>
-          </div>
-        );
+        return <ExecutiveSummaryView data={displayData} />;
       case "glossary":
         return (
           <div className="p-8">
