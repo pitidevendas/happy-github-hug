@@ -109,7 +109,7 @@ export function useLeads() {
     }
   }, [user?.id]);
 
-  const moveToStage = useCallback(async (id: string, newStatus: LeadStatus): Promise<boolean> => {
+  const moveToStage = useCallback(async (id: string, newStatus: LeadStatus, showToast: boolean = true): Promise<boolean> => {
     if (!user?.id) return false;
 
     try {
@@ -138,11 +138,45 @@ export function useLeads() {
           : l
       ));
       
-      toast.success(`Lead movido para ${LEAD_STATUS_CONFIG[newStatus].label}`);
+      if (showToast) {
+        toast.success(`Lead movido para ${LEAD_STATUS_CONFIG[newStatus].label}`);
+      }
       return true;
     } catch (err: any) {
       console.error('Erro ao mover lead:', err);
       toast.error('Erro ao mover lead');
+      return false;
+    }
+  }, [user?.id]);
+
+  // Vincular lead a uma venda convertida
+  const linkToSale = useCallback(async (leadId: string, saleId: string): Promise<boolean> => {
+    if (!user?.id) return false;
+
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({
+          converted_sale_id: saleId,
+          status: 'fechado_ganho',
+          closing_date: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', leadId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setLeads(prev => prev.map(l => 
+        l.id === leadId 
+          ? { ...l, converted_sale_id: saleId, status: 'fechado_ganho' as LeadStatus, closing_date: new Date().toISOString() } 
+          : l
+      ));
+      
+      return true;
+    } catch (err: any) {
+      console.error('Erro ao vincular lead à venda:', err);
+      toast.error('Erro ao vincular lead à venda');
       return false;
     }
   }, [user?.id]);
@@ -282,6 +316,7 @@ export function useLeads() {
     updateLead,
     moveToStage,
     deleteLead,
+    linkToSale,
     leadsByStatus,
     todayContacts,
     overdueContacts,

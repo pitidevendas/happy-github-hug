@@ -33,6 +33,7 @@ interface LeadDetailModalProps {
   onDelete: (id: string) => Promise<boolean>;
   onMoveStage: (id: string, newStatus: LeadStatus) => Promise<boolean>;
   team: Salesperson[];
+  onConvertToSale?: (lead: Lead) => void;
 }
 
 const LeadDetailModal = ({ 
@@ -42,7 +43,8 @@ const LeadDetailModal = ({
   onUpdate, 
   onDelete, 
   onMoveStage,
-  team 
+  team,
+  onConvertToSale
 }: LeadDetailModalProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -85,6 +87,7 @@ const LeadDetailModal = ({
   };
 
   const handleWin = async () => {
+    // Usa o handler de conversão do PipelineView que abre o modal
     await onMoveStage(lead.id, 'fechado_ganho');
     onClose();
   };
