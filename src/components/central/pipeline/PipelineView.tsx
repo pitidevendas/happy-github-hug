@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Filter, Plus, LayoutGrid, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLeads } from '@/hooks/useLeads';
+import useSales from '@/hooks/useSales';
+import { useAuth } from '@/contexts/AuthContext';
 import { Salesperson } from '@/types';
 import InfoTooltip from '@/components/central/InfoTooltip';
 import SalesFunnelPyramid from './SalesFunnelPyramid';
@@ -12,14 +14,18 @@ import PipelineList from './PipelineList';
 import ContactAlerts from './ContactAlerts';
 import LeadForm from './LeadForm';
 import LeadDetailModal from './LeadDetailModal';
+import LeadToSaleModal from './LeadToSaleModal';
 import IRISPipelineInsights from './IRISPipelineInsights';
-import { Lead } from '@/types/leads';
+import { Lead, LeadStatus } from '@/types/leads';
+import { SaleFormData } from '@/types/sales';
+import { toast } from 'sonner';
 
 interface PipelineViewProps {
   team: Salesperson[];
 }
 
 const PipelineView = ({ team }: PipelineViewProps) => {
+  const { user } = useAuth();
   const {
     leads,
     isLoading,
@@ -34,12 +40,17 @@ const PipelineView = ({ team }: PipelineViewProps) => {
     createLead,
     updateLead,
     moveToStage,
-    deleteLead
+    deleteLead,
+    linkToSale
   } = useLeads();
+
+  const { createSale } = useSales(user?.id);
 
   const [showLeadForm, setShowLeadForm] = useState(false);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
+  const [leadToConvert, setLeadToConvert] = useState<Lead | null>(null);
+  const [isConvertingSale, setIsConvertingSale] = useState(false);
 
   const handleLeadClick = (lead: Lead) => {
     setSelectedLead(lead);
@@ -47,6 +58,55 @@ const PipelineView = ({ team }: PipelineViewProps) => {
 
   const handlePyramidClick = (status: string) => {
     setFilterStatus(filterStatus === status ? null : status);
+  };
+
+  // Handler para quando lead é movido para "Ganho" - abre modal de conversão
+  const handleMoveToStage = useCallback(async (id: string, newStatus: LeadStatus): Promise<boolean> => {
+    if (newStatus === 'fechado_ganho') {
+      // Encontrar o lead e abrir modal de conversão
+      const lead = leads.find(l => l.id === id);
+      if (lead) {
+        setLeadToConvert(lead);
+        return true; // Retorna true mas não move ainda - aguarda conversão
+      }
+    }
+    // Para outros status, move normalmente
+    return moveToStage(id, newStatus);
+  }, [leads, moveToStage]);
+
+  // Handler para converter lead em venda
+  const handleConvertToSale = async (leadId: string, saleData: SaleFormData): Promise<boolean> => {
+    setIsConvertingSale(true);
+    try {
+      // 1. Criar a venda
+      const newSale = await createSale({
+        ...saleData,
+        entry_type: 'individual'
+      });
+
+      if (!newSale) {
+        toast.error('Erro ao criar venda');
+        return false;
+      }
+
+      // 2. Vincular o lead à venda e mover para Ganho
+      const linked = await linkToSale(leadId, newSale.id);
+      
+      if (linked) {
+        toast.success('🎉 Lead convertido em venda com sucesso!');
+        setLeadToConvert(null);
+        setSelectedLead(null);
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Erro ao converter lead:', error);
+      toast.error('Erro ao converter lead em venda');
+      return false;
+    } finally {
+      setIsConvertingSale(false);
+    }
   };
 
   if (isLoading) {
@@ -133,7 +193,7 @@ const PipelineView = ({ team }: PipelineViewProps) => {
           <PipelineKanban 
             leadsByStatus={leadsByStatus}
             onLeadClick={handleLeadClick}
-            onMoveStage={moveToStage}
+            onMoveStage={handleMoveToStage}
             filterStatus={filterStatus}
           />
         </TabsContent>
@@ -142,7 +202,7 @@ const PipelineView = ({ team }: PipelineViewProps) => {
           <PipelineList 
             leads={leads}
             onLeadClick={handleLeadClick}
-            onMoveStage={moveToStage}
+            onMoveStage={handleMoveToStage}
             onDelete={deleteLead}
             team={team}
           />
@@ -165,8 +225,20 @@ const PipelineView = ({ team }: PipelineViewProps) => {
           onClose={() => setSelectedLead(null)}
           onUpdate={updateLead}
           onDelete={deleteLead}
-          onMoveStage={moveToStage}
+          onMoveStage={handleMoveToStage}
           team={team}
+        />
+      )}
+
+      {/* Modal de Conversão Lead → Venda */}
+      {leadToConvert && (
+        <LeadToSaleModal
+          lead={leadToConvert}
+          isOpen={!!leadToConvert}
+          onClose={() => setLeadToConvert(null)}
+          onSubmit={handleConvertToSale}
+          team={team}
+          isSubmitting={isConvertingSale}
         />
       )}
     </div>
