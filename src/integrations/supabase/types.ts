@@ -261,6 +261,92 @@ export type Database = {
           },
         ]
       }
+      leads: {
+        Row: {
+          approach_date: string | null
+          client_name: string
+          closing_date: string | null
+          comments: string | null
+          converted_sale_id: string | null
+          created_at: string | null
+          email: string | null
+          estimated_value: number | null
+          followup_date: string | null
+          id: string
+          lead_source: string | null
+          negotiation_date: string | null
+          next_contact_date: string | null
+          next_contact_notes: string | null
+          phone: string | null
+          post_sale_date: string | null
+          presentation_date: string | null
+          prospecting_date: string | null
+          salesperson_id: string | null
+          salesperson_name: string | null
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          approach_date?: string | null
+          client_name: string
+          closing_date?: string | null
+          comments?: string | null
+          converted_sale_id?: string | null
+          created_at?: string | null
+          email?: string | null
+          estimated_value?: number | null
+          followup_date?: string | null
+          id?: string
+          lead_source?: string | null
+          negotiation_date?: string | null
+          next_contact_date?: string | null
+          next_contact_notes?: string | null
+          phone?: string | null
+          post_sale_date?: string | null
+          presentation_date?: string | null
+          prospecting_date?: string | null
+          salesperson_id?: string | null
+          salesperson_name?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          approach_date?: string | null
+          client_name?: string
+          closing_date?: string | null
+          comments?: string | null
+          converted_sale_id?: string | null
+          created_at?: string | null
+          email?: string | null
+          estimated_value?: number | null
+          followup_date?: string | null
+          id?: string
+          lead_source?: string | null
+          negotiation_date?: string | null
+          next_contact_date?: string | null
+          next_contact_notes?: string | null
+          phone?: string | null
+          post_sale_date?: string | null
+          presentation_date?: string | null
+          prospecting_date?: string | null
+          salesperson_id?: string | null
+          salesperson_name?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_converted_sale_id_fkey"
+            columns: ["converted_sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pgv_entries: {
         Row: {
           created_at: string

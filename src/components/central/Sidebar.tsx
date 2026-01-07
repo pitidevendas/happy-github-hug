@@ -19,7 +19,8 @@ import {
   CalendarDays,
   Trophy,
   MessageSquare,
-  ClipboardList
+  ClipboardList,
+  Filter
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -62,6 +63,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       items: [
         { id: 'agency-global', label: 'Visão Global', icon: Globe, consultantOnly: true, iconClass: 'text-cyan-500' },
         { id: 'dashboard', label: 'Visão Geral', icon: LayoutDashboard },
+        { id: 'pipeline', label: 'Pipeline', icon: Filter, iconClass: 'text-blue-500' },
         { id: 'seasonality', label: 'Sazonalidade', icon: CalendarDays },
         { id: 'team', label: 'Equipe', icon: Users },
       ]

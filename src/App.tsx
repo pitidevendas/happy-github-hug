@@ -16,6 +16,7 @@ import SalesEntryView from "@/components/central/SalesEntryView";
 import RMRView from "@/components/central/rmr/RMRView";
 import PGVSemanalView from "@/components/central/pgv/PGVSemanalView";
 import FIVIView from "@/components/central/fivi/FIVIView";
+import PipelineView from "@/components/central/pipeline/PipelineView";
 import Sidebar from "@/components/central/Sidebar";
 import ChatAssistant from "@/components/central/ChatAssistant";
 import UploadModal from "@/components/central/UploadModal";
@@ -182,6 +183,8 @@ const AuthenticatedApp = () => {
     switch (currentView) {
       case "dashboard":
         return <DashboardView data={displayData} />;
+      case "pipeline":
+        return <PipelineView team={displayData.team} />;
       case "team":
         return <TeamView team={displayData.team} monthlyGoal={200000} />;
       case "pgv":
