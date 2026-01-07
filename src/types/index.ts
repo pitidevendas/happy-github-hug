@@ -82,6 +82,7 @@ export interface UploadConfig {
 
 export type ViewState =
   | 'dashboard'
+  | 'pipeline'
   | 'seasonality'
   | 'team'
   | 'pgv'
