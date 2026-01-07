@@ -19,6 +19,7 @@ import FIVIView from "@/components/central/fivi/FIVIView";
 import PipelineView from "@/components/central/pipeline/PipelineView";
 import ExecutiveSummaryView from "@/components/central/ExecutiveSummaryView";
 import GlossaryView from "@/components/central/GlossaryView";
+import StudentsView from "@/components/central/students/StudentsView";
 import Sidebar from "@/components/central/Sidebar";
 import MobileHeader from "@/components/central/MobileHeader";
 import ChatAssistant from "@/components/central/ChatAssistant";
@@ -273,12 +274,7 @@ const AuthenticatedApp = () => {
       case "glossary":
         return <GlossaryView />;
       case "admin-users":
-        return (
-          <div className="p-8">
-            <h2 className="text-2xl font-bold text-foreground mb-4">Gestão de Alunos</h2>
-            <p className="text-muted-foreground">Em desenvolvimento...</p>
-          </div>
-        );
+        return <StudentsView />;
       case "input-center":
         return <SalesEntryView team={displayData.team} />;
       case "agency-global":
