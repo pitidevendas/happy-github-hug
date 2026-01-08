@@ -30,6 +30,26 @@ const SettingsView = ({ data, onSaveSettings }: SettingsViewProps) => {
   const [segment, setSegment] = useState(data.businessSegment || "");
   const [customSegment, setCustomSegment] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await signOut();
+      toast({
+        title: "Até logo!",
+        description: "Você saiu da sua conta com sucesso.",
+      });
+    } catch (error) {
+      console.error("Error signing out:", error);
+      toast({
+        title: "Erro ao sair",
+        description: "Não foi possível sair da conta. Tente novamente.",
+        variant: "destructive",
+      });
+      setIsLoggingOut(false);
+    }
+  };
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -344,11 +364,12 @@ const SettingsView = ({ data, onSaveSettings }: SettingsViewProps) => {
         </Button>
         <Button
           variant="destructive"
-          onClick={signOut}
+          onClick={handleLogout}
+          disabled={isLoggingOut}
           className="flex-1 sm:flex-none"
         >
           <LogOut className="h-4 w-4 mr-2" />
-          Sair da Conta
+          {isLoggingOut ? "Saindo..." : "Sair da Conta"}
         </Button>
       </motion.div>
     </motion.div>
