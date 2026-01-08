@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Cpu } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Brain, Sparkles } from 'lucide-react';
 
 interface LogoProps {
   collapsed?: boolean;
@@ -49,13 +49,23 @@ const Logo: React.FC<LogoProps> = ({ collapsed = false, customLogoUrl, systemNam
       ) : (
         <div className={`
           w-12 h-12 flex-shrink-0 rounded-xl shadow-md border transition-all duration-500
-          grid place-items-center bg-primary
-          ${isThinking ? 'shadow-[0_0_20px_hsl(var(--primary)/0.6)] scale-105' : ''}
+          grid place-items-center bg-gradient-to-br from-primary via-primary to-accent relative overflow-hidden
+          ${isThinking ? 'shadow-[0_0_25px_hsl(var(--primary)/0.7)] scale-105' : 'shadow-[0_0_15px_hsl(var(--primary)/0.3)]'}
         `}>
-          <Cpu
-            size={24}
-            strokeWidth={1.5}
-            className={`transition-all duration-500 text-primary-foreground ${isThinking ? 'animate-[spin_3s_linear_infinite]' : ''}`}
+          {/* Pulse ring effect */}
+          <div className={`absolute inset-0 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 ${isThinking ? 'animate-ping' : 'animate-pulse'}`} style={{ animationDuration: isThinking ? '1s' : '2s' }} />
+          
+          {/* Sparkle accent */}
+          <Sparkles
+            size={10}
+            className={`absolute top-1 right-1 text-primary-foreground/60 transition-all duration-500 ${isThinking ? 'opacity-100 animate-pulse' : 'opacity-40'}`}
+          />
+          
+          {/* Main Brain icon */}
+          <Brain
+            size={26}
+            strokeWidth={1.8}
+            className={`relative z-10 transition-all duration-500 text-primary-foreground drop-shadow-sm ${isThinking ? 'animate-pulse scale-110' : ''}`}
           />
         </div>
       )}
