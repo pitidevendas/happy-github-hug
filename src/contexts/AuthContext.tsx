@@ -131,28 +131,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const handleSignOut = async () => {
-    // In some cases the backend may already have invalidated the session (e.g. expired/revoked).
-    // We still want the UI to fully log out locally.
-    const { error } = await supabase.auth.signOut();
-
-    if (error) {
-      const msg = (error as any)?.message || '';
-      const code = (error as any)?.code || '';
-
-      // Treat "session not found" as already-logged-out; clear local state and continue.
-      if (code === 'session_not_found' || msg.toLowerCase().includes('session not found')) {
-        setUser(null);
-        setSession(null);
-        setUserProfile(null);
-        return;
-      }
-
-      throw error;
-    }
-
+    // Always clear local state first to ensure UI updates immediately
     setUser(null);
     setSession(null);
     setUserProfile(null);
+
+    try {
+      // Use scope: 'local' to only clear the local session
+      // This avoids errors when the server session is already invalid
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch (error) {
+      // Even if signOut fails, we've already cleared the local state
+      console.warn("SignOut warning (local state already cleared):", error);
+    }
   };
 
   const refreshProfile = async () => {
