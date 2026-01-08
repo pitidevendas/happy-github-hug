@@ -44,23 +44,58 @@ export const useDashboardData = (userId: string | undefined): UseDashboardDataRe
     setError(null);
 
     try {
-      const { data, error: fetchError } = await supabase
-        .from("dashboard_data")
-        .select("*")
-        .eq("user_id", userId)
-        .maybeSingle();
+      // Buscar dados do dashboard e vendas em paralelo
+      const [dashboardResult, salesResult] = await Promise.all([
+        supabase
+          .from("dashboard_data")
+          .select("*")
+          .eq("user_id", userId)
+          .maybeSingle(),
+        supabase
+          .from("sales")
+          .select("amount, is_new_client, acquisition_cost")
+          .eq("user_id", userId)
+      ]);
 
-      if (fetchError) {
-        throw fetchError;
+      if (dashboardResult.error) {
+        throw dashboardResult.error;
       }
 
+      const data = dashboardResult.data;
+      const salesData = salesResult.data || [];
+
       if (data) {
+        // Calcular KPIs dinâmicos a partir das vendas
+        const totalSales = salesData.length;
+        const totalRevenue = salesData.reduce((sum, s) => sum + Number(s.amount || 0), 0);
+        const averageTicket = totalSales > 0 ? totalRevenue / totalSales : 0;
+        
+        const newClients = salesData.filter(s => s.is_new_client).length;
+        const totalAcquisitionCost = salesData.reduce((sum, s) => sum + Number(s.acquisition_cost || 0), 0);
+        const cac = newClients > 0 ? totalAcquisitionCost / newClients : 0;
+        
+        // LTV estimado: ticket médio × frequência estimada de 4 compras
+        const ltv = averageTicket * 4;
+
+        const storedKpis = (data.kpis as unknown as KPI) || defaultKPIs;
+        
+        // Mesclar KPIs calculados com os armazenados
+        const dynamicKpis: KPI = {
+          ...storedKpis,
+          averageTicket: averageTicket > 0 ? averageTicket : storedKpis.averageTicket,
+          totalSalesCount: totalSales > 0 ? totalSales : storedKpis.totalSalesCount,
+          cac: cac > 0 ? cac : storedKpis.cac,
+          ltv: ltv > 0 ? ltv : storedKpis.ltv,
+          // Manter conversionRate se existir, pois depende de dados externos
+          conversionRate: storedKpis.conversionRate || 0,
+        };
+
         const parsedData: DashboardData = {
           companyName: data.company_name || "Minha Empresa",
           businessSegment: data.business_segment || "Varejo",
           customLogoUrl: data.custom_logo_url || undefined,
           appSettings: (data.app_settings as unknown as DashboardData["appSettings"]) || { aggressiveMode: false, considerVacation: false },
-          kpis: (data.kpis as unknown as KPI) || defaultKPIs,
+          kpis: dynamicKpis,
           historicalData: (data.historical_data as unknown as MonthlyData[]) || [],
           currentYearData: (data.current_year_data as unknown as MonthlyData[]) || [],
           team: (data.team as unknown as Salesperson[]) || [],
