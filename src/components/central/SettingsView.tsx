@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardData, AppSettings } from "@/types";
+import WhitelabelSettings from "./settings/WhitelabelSettings";
 
 interface SettingsViewProps {
   data: DashboardData;
@@ -269,11 +270,22 @@ const SettingsView = ({ data, onSaveSettings }: SettingsViewProps) => {
         </Card>
       </motion.div>
 
+      {/* White-label Section (only for consultants) */}
+      {userProfile?.role === 'consultant' && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <WhitelabelSettings />
+        </motion.div>
+      )}
+
       {/* App Settings */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
+        transition={{ delay: 0.4 }}
       >
         <Card className="bg-card border-border">
           <CardHeader>
@@ -323,7 +335,7 @@ const SettingsView = ({ data, onSaveSettings }: SettingsViewProps) => {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
+        transition={{ delay: 0.5 }}
         className="flex flex-col sm:flex-row gap-4"
       >
         <Button onClick={handleSave} disabled={isSaving} className="flex-1 sm:flex-none">

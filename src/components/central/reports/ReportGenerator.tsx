@@ -15,33 +15,13 @@ import {
   TrendingUp,
   Users,
   Target,
-  Sparkles
+  Sparkles,
+  FileDown
 } from 'lucide-react';
+import { downloadPDF, ReportData } from '@/lib/pdfGenerator';
 
 interface ReportGeneratorProps {
   onClose?: () => void;
-}
-
-interface ReportData {
-  title: string;
-  period: string;
-  companyName: string;
-  generatedAt: string;
-  summary: {
-    totalRevenue: number;
-    totalSales: number;
-    avgTicket: number;
-    monthlyGoal: number;
-    progress: string;
-  };
-  teamPerformance: {
-    name: string;
-    revenue: number;
-    goal: number;
-    progress: string;
-    salesCount: number;
-  }[];
-  insights: string[];
 }
 
 export default function ReportGenerator({ onClose }: ReportGeneratorProps) {
@@ -106,10 +86,28 @@ export default function ReportGenerator({ onClose }: ReportGeneratorProps) {
     }
   };
 
-  const handleDownload = () => {
+  const handleDownloadPDF = () => {
     if (!reportData) return;
 
-    // Create a simple text version for download
+    try {
+      downloadPDF(reportData);
+      toast({
+        title: 'Download iniciado',
+        description: 'O PDF está sendo baixado.',
+      });
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({
+        title: 'Erro ao gerar PDF',
+        description: 'Não foi possível gerar o arquivo PDF.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDownloadTXT = () => {
+    if (!reportData) return;
+
     const content = `
 ${reportData.title}
 ${reportData.period}
@@ -144,7 +142,7 @@ ${reportData.insights.join('\n')}
 
     toast({
       title: 'Download iniciado',
-      description: 'O relatório está sendo baixado.',
+      description: 'O arquivo TXT está sendo baixado.',
     });
   };
 
@@ -246,7 +244,7 @@ ${reportData.insights.join('\n')}
             
             <div className="space-y-6">
               {/* Header */}
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div>
                   <h3 className="text-lg font-bold text-foreground">{reportData.title}</h3>
                   <p className="text-sm text-muted-foreground flex items-center gap-2">
@@ -254,10 +252,16 @@ ${reportData.insights.join('\n')}
                     {reportData.period}
                   </p>
                 </div>
-                <Button variant="outline" onClick={handleDownload}>
-                  <Download className="w-4 h-4 mr-2" />
-                  Baixar
-                </Button>
+                <div className="flex gap-2">
+                  <Button onClick={handleDownloadPDF} className="gap-2">
+                    <FileDown className="w-4 h-4" />
+                    Baixar PDF
+                  </Button>
+                  <Button variant="outline" onClick={handleDownloadTXT}>
+                    <Download className="w-4 h-4 mr-2" />
+                    TXT
+                  </Button>
+                </div>
               </div>
 
               {/* Summary */}
