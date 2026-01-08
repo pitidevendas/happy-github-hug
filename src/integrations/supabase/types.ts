@@ -737,6 +737,50 @@ export type Database = {
         }
         Relationships: []
       }
+      whitelabel_settings: {
+        Row: {
+          accent_color: string | null
+          created_at: string
+          favicon_url: string | null
+          id: string
+          primary_color: string | null
+          sidebar_color: string | null
+          system_name: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          accent_color?: string | null
+          created_at?: string
+          favicon_url?: string | null
+          id?: string
+          primary_color?: string | null
+          sidebar_color?: string | null
+          system_name?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          accent_color?: string | null
+          created_at?: string
+          favicon_url?: string | null
+          id?: string
+          primary_color?: string | null
+          sidebar_color?: string | null
+          system_name?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whitelabel_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
