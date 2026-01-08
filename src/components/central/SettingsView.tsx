@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -74,88 +74,71 @@ const SettingsView = ({ data, onSaveSettings }: SettingsViewProps) => {
   };
 
   // Segmentos organizados por categoria
-  const segments = [
-    // Automotivo
-    "Concessionária",
-    "Oficina Mecânica",
-    "Autopeças",
-    "Estética Automotiva",
-    "Locadora de Veículos",
-    // Beleza & Estética
-    "Salão de Beleza",
-    "Barbearia",
-    "Clínica de Estética",
-    "Spa",
-    "Studio de Unhas",
-    // Alimentação
-    "Restaurante",
-    "Lanchonete",
-    "Padaria",
-    "Confeitaria",
-    "Food Truck",
-    "Distribuidora de Alimentos",
-    // Saúde
-    "Clínica Médica",
-    "Clínica Odontológica",
-    "Ótica",
-    "Farmácia",
-    "Laboratório",
-    "Clínica Veterinária",
-    // Moda & Varejo
-    "Loja de Roupas",
-    "Loja de Calçados",
-    "Loja de Acessórios",
-    "Joalheria",
-    "Loja de Departamentos",
-    // Serviços
-    "Consultoria",
-    "Agência de Marketing",
-    "Contabilidade",
-    "Advocacia",
-    "Corretora de Seguros",
-    // Construção
-    "Loja de Materiais de Construção",
-    "Engenharia",
-    "Arquitetura",
-    "Reformas e Acabamentos",
-    // Educação
-    "Escola",
-    "Cursos Livres",
-    "Escola de Idiomas",
-    "Ensino Superior",
-    // Tecnologia
-    "Software/SaaS",
-    "E-commerce",
-    "Agência Digital",
-    "Startup",
-    // Fitness & Bem-estar
-    "Academia",
-    "Studio de Pilates",
-    "CrossFit",
-    "Personal Trainer",
-    // Imobiliário
-    "Imobiliária",
-    "Construtora",
-    "Administração de Imóveis",
-    // Pet
-    "Pet Shop",
-    "Hotel para Pets",
-    // Turismo
-    "Agência de Viagens",
-    "Hotel/Pousada",
-    "Turismo Receptivo",
-    // Agronegócio
-    "Insumos Agrícolas",
-    "Pecuária",
-    "Máquinas Agrícolas",
-    // Indústria
-    "Manufatura",
-    "Metalurgia",
-    "Têxtil",
-    // Outros
-    "Varejo Geral",
-    "Atacado",
-    "Outro",
+  const segmentCategories = [
+    {
+      label: "🚗 Automotivo",
+      items: ["Concessionária", "Oficina Mecânica", "Autopeças", "Estética Automotiva", "Locadora de Veículos"],
+    },
+    {
+      label: "💇 Beleza & Estética",
+      items: ["Salão de Beleza", "Barbearia", "Clínica de Estética", "Spa", "Studio de Unhas"],
+    },
+    {
+      label: "🍽️ Alimentação",
+      items: ["Restaurante", "Lanchonete", "Padaria", "Confeitaria", "Food Truck", "Distribuidora de Alimentos"],
+    },
+    {
+      label: "🏥 Saúde",
+      items: ["Clínica Médica", "Clínica Odontológica", "Ótica", "Farmácia", "Laboratório", "Clínica Veterinária"],
+    },
+    {
+      label: "👗 Moda & Varejo",
+      items: ["Loja de Roupas", "Loja de Calçados", "Loja de Acessórios", "Joalheria", "Loja de Departamentos"],
+    },
+    {
+      label: "💼 Serviços",
+      items: ["Consultoria", "Agência de Marketing", "Contabilidade", "Advocacia", "Corretora de Seguros"],
+    },
+    {
+      label: "🏗️ Construção",
+      items: ["Loja de Materiais de Construção", "Engenharia", "Arquitetura", "Reformas e Acabamentos"],
+    },
+    {
+      label: "📚 Educação",
+      items: ["Escola", "Cursos Livres", "Escola de Idiomas", "Ensino Superior"],
+    },
+    {
+      label: "💻 Tecnologia",
+      items: ["Software/SaaS", "E-commerce", "Agência Digital", "Startup"],
+    },
+    {
+      label: "🏋️ Fitness & Bem-estar",
+      items: ["Academia", "Studio de Pilates", "CrossFit", "Personal Trainer"],
+    },
+    {
+      label: "🏠 Imobiliário",
+      items: ["Imobiliária", "Construtora", "Administração de Imóveis"],
+    },
+    {
+      label: "🐾 Pet",
+      items: ["Pet Shop", "Hotel para Pets"],
+    },
+    {
+      label: "✈️ Turismo",
+      items: ["Agência de Viagens", "Hotel/Pousada", "Turismo Receptivo"],
+    },
+    {
+      label: "🌾 Agronegócio",
+      items: ["Insumos Agrícolas", "Pecuária", "Máquinas Agrícolas"],
+    },
+    {
+      label: "🏭 Indústria",
+      items: ["Manufatura", "Metalurgia", "Têxtil"],
+    },
+    {
+      label: "📦 Outros",
+      items: ["Varejo Geral", "Atacado", "Outro"],
+    },
   ];
 
   return (
@@ -251,11 +234,18 @@ const SettingsView = ({ data, onSaveSettings }: SettingsViewProps) => {
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione o segmento" />
                   </SelectTrigger>
-                  <SelectContent className="max-h-60">
-                    {segments.map((seg) => (
-                      <SelectItem key={seg} value={seg}>
-                        {seg}
-                      </SelectItem>
+                  <SelectContent className="max-h-72">
+                    {segmentCategories.map((category) => (
+                      <SelectGroup key={category.label}>
+                        <SelectLabel className="text-xs font-semibold text-muted-foreground">
+                          {category.label}
+                        </SelectLabel>
+                        {category.items.map((seg) => (
+                          <SelectItem key={seg} value={seg}>
+                            {seg}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
                     ))}
                   </SelectContent>
                 </Select>
